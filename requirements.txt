@@ -2,3 +2,7 @@ moviepy==1.0.3
 numpy
 opencv-python
 easyocr
+fastapi
+uvicorn
+python-multipart
+jinja2

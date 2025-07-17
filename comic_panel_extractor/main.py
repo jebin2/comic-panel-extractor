@@ -13,11 +13,12 @@ import shutil
 class ComicPanelExtractor:
     """Main class that orchestrates the comic panel extraction process."""
     
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, reset: bool = True):
         self.config = config
-        if Path(self.config.output_folder).exists():
-            shutil.rmtree(self.config.output_folder)
-        Path(self.config.output_folder).mkdir(exist_ok=True)
+        if reset:
+            if Path(self.config.output_folder).exists():
+                shutil.rmtree(self.config.output_folder)
+            Path(self.config.output_folder).mkdir(exist_ok=True)
         
         self.image_processor = ImageProcessor(self.config)
         self.panel_extractor = PanelExtractor(self.config)
@@ -37,11 +38,11 @@ class ComicPanelExtractor:
         cleaned_path = self.image_processor.clean_dilated_image(dilated_path)
         
         # Step 4: Extract panels
-        panel_images, panel_data = self.panel_extractor.extract_panels(
+        panel_images, panel_data, all_panel_path = self.panel_extractor.extract_panels(
             cleaned_path, min_width_ratio=0.1
         )
         
-        return panel_images, panel_data
+        return panel_images, panel_data, all_panel_path
     
     def _detect_text_bubbles(self) -> List[dict]:
         """Detect text bubbles in the comic image."""

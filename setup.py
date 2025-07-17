@@ -32,6 +32,7 @@ setup(
     entry_points={
         "console_scripts": [
             "comic-panel-extractor=comic_panel_extractor.cli:main",
+            "serve-comic-panel-extractor=comic_panel_extractor.server:main",
         ],
     },
     include_package_data=True,

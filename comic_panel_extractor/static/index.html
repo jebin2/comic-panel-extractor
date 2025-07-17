@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comic Panel Extractor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            font-weight: 700;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 40px;
+        }
+
+        .upload-section {
+            margin-bottom: 40px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 40px;
+            text-align: center;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            font-size: 0.9em;
+            color: #888;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            margin: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-clear {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn-clear:hover {
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .results {
+            margin-top: 40px;
+        }
+
+        .results h2 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .panels-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .panel-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+            overflow: hidden;
+        }
+
+        .panel-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .panel-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .panel-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .panel-download {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            text-decoration: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .panel-download:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+
+        .message.success {
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(139, 195, 74, 0.1) 100%);
+            color: #2e7d32;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+
+        .message.error {
+            background: linear-gradient(135deg, rgba(244, 67, 54, 0.1) 0%, rgba(255, 87, 34, 0.1) 100%);
+            color: #c62828;
+            border: 1px solid rgba(244, 67, 54, 0.3);
+        }
+
+        .controls {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .upload-preview {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .upload-preview img {
+            max-width: 300px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .upload-preview img:hover {
+            transform: scale(1.05);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        .modal-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            max-width: none;
+            max-height: none;
+            border-radius: 0;
+        }
+
+        .modal-content img {
+            max-width: 90%;
+            max-height: 90%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            border-radius: 10px;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            font-size: 40px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+        }
+
+        .upload-area img {
+            max-width: 100%;
+            max-height: 250px;
+            border-radius: 10px;
+            display: block;
+            margin: 0 auto;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .upload-area img:hover {
+            transform: scale(1.05);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .upload-area {
+                padding: 40px 20px;
+            }
+
+            .panels-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Comic Panel Extractor</h1>
+
+        <div class="upload-section">
+            <div class="upload-area" id="upload-area">
+                <div class="upload-content" id="upload-content">
+                    <div class="upload-icon">📚</div>
+                    <div class="upload-text">Click or drag your comic page here</div>
+                    <div class="upload-hint">Supports JPG, PNG, and other image formats</div>
+                </div>
+                <input type="file" id="file-input" accept="image/*">
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" onclick="document.getElementById('file-input').click()">
+                Choose File
+            </button>
+            <button class="btn btn-clear" onclick="clearPanels()">
+                Clear All Panels
+            </button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Extracting comic panels...</p>
+        </div>
+
+        <div id="message-container"></div>
+
+        <div class="results" id="results" style="display: none;">
+            <h2>Extracted Panels</h2>
+            <div class="panels-grid" id="panels-grid"></div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="image-modal" class="modal" onclick="closeModal()">
+        <span class="close-modal" onclick="closeModal()">&times;</span>
+        <div class="modal-content" id="modal-content">
+            <img id="modal-image" src="" alt="Preview">
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const uploadContent = document.getElementById('upload-content');
+        let uploadedImageUrl = null;
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const panelsGrid = document.getElementById('panels-grid');
+        const messageContainer = document.getElementById('message-container');
+        const uploadPreview = document.getElementById('upload-preview');
+        const modal = document.getElementById('image-modal');
+        const modalImage = document.getElementById('modal-image');
+
+        function generateUniqueId(file, length = 12) {
+            ext = "." + file.name.split(".")[file.name.split(".").length - 1]
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('') + ext;
+        }
+
+        function showMessage(message, type = 'success') {
+            messageContainer.innerHTML = `<div class="message ${type}">${message}</div>`;
+            setTimeout(() => {
+                messageContainer.innerHTML = '';
+            }, 5000);
+        }
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                uploadedImageUrl = e.target.result;
+                const previewImage = `
+            <img src="${e.target.result}" alt="Uploaded Image" id="uploaded-preview">
+        `;
+                uploadContent.innerHTML = previewImage;
+            };
+            reader.readAsDataURL(file);
+
+            const newFileName = generateUniqueId(file);
+            const renamedFile = new File([file], newFileName, { type: file.type });
+
+            const formData = new FormData();
+            formData.append('file', renamedFile);
+
+            loading.style.display = 'block';
+            results.style.display = 'none';
+
+            fetch('/convert', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    loading.style.display = 'none';
+
+                    if (data.success) {
+                        showMessage(data.message, 'success');
+                        displayPanels(data.panels);
+                    } else {
+                        showMessage(data.message || 'An error occurred', 'error');
+                    }
+                })
+                .catch(error => {
+                    loading.style.display = 'none';
+                    showMessage('Error uploading file: ' + error.message, 'error');
+                });
+        }
+
+        // Single click handler for upload area
+        uploadArea.addEventListener('click', (e) => {
+            // If clicking on preview image, open modal
+            if (e.target.id === 'uploaded-preview') {
+                openModal(uploadedImageUrl);
+                e.stopPropagation();
+                return;
+            }
+
+            // Only open file picker if no image is uploaded yet
+            if (!uploadedImageUrl) {
+                fileInput.click();
+            }
+        });
+
+        // Drag & drop support
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function displayPanels(panels) {
+            panelsGrid.innerHTML = '';
+
+            if (panels.length === 0) {
+                results.style.display = 'none';
+                showMessage('No panels were detected in the image.', 'error');
+                return;
+            }
+
+            panels.forEach((panel, index) => {
+                const panelCard = document.createElement('div');
+                panelCard.className = 'panel-card';
+                panelCard.innerHTML = `
+                    <img src="${panel}" alt="Panel ${index + 1}" onclick="openModal('${panel}')">
+                    <div class="panel-title">Panel ${index + 1}</div>
+                    <a href="${panel}" download="${panel}" class="panel-download">
+                        Download
+                    </a>
+                `;
+                panelsGrid.appendChild(panelCard);
+            });
+
+            results.style.display = 'block';
+        }
+
+        function clearPanels() {
+            fetch('/clear', {
+                method: 'DELETE'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showMessage(data.message, 'success');
+                        results.style.display = 'none';
+                        panelsGrid.innerHTML = '';
+                        uploadPreview.innerHTML = '';
+                    } else {
+                        showMessage(data.message || 'Error clearing panels', 'error');
+                    }
+                })
+                .catch(error => {
+                    showMessage('Error clearing panels: ' + error.message, 'error');
+                });
+        }
+
+        function openModal(src) {
+            modal.style.display = 'block';
+            modalImage.src = src;
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+            modalImage.src = '';
+        }
+    </script>
+</body>
+
+</html>

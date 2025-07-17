@@ -5,7 +5,7 @@ from typing import List, Optional
 from dataclasses import dataclass
 import numpy as np
 
-from .config import Config
+from .config import Config, get_text_cood_file_path
 
 @dataclass
 class TextDetection:
@@ -104,13 +104,14 @@ class TextDetector:
     
     def detect_and_group_text(self) -> str:
         """Main method to detect and group text, saving results to JSON."""
-        if not os.path.exists(self.config.text_cood_path):
+        text_coord_path = get_text_cood_file_path(self.config)
+        if not os.path.exists(text_coord_path):
             detections = self.detect_text()
             groups = self.group_text_regions(detections)
-            self._save_groups_to_json(groups, self.config.text_cood_path)
-            print(f"Grouped bubbles saved: {self.config.text_cood_path}")
+            self._save_groups_to_json(groups, text_coord_path)
+            print(f"Grouped bubbles saved: {text_coord_path}")
         
-        return self.config.text_cood_path
+        return text_coord_path
     
     def _save_groups_to_json(self, groups: List[TextDetection], output_path: str):
         """Save grouped text detections to JSON file."""

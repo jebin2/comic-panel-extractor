@@ -60,11 +60,11 @@ class PanelExtractor:
         )
         
         # Extract panel images and save
-        panel_images, panel_data = self._save_panels(
+        panel_images, panel_data, all_panel_path = self._save_panels(
             filtered_panels, original, width, height
         )
         
-        return panel_images, panel_data
+        return panel_images, panel_data, all_panel_path
     
     def _find_panel_rows(self, dilated: np.ndarray, row_thresh: int) -> List[Tuple[int, int]]:
         """Find panel rows by analyzing horizontal black percentages."""
@@ -157,6 +157,7 @@ class PanelExtractor:
         visual_output = original.copy()
         panel_images = []
         panel_data = []
+        all_panel_path = []
         
         for idx, (x1, y1, x2, y2) in enumerate(panels, 1):
             # Extract panel image
@@ -170,6 +171,7 @@ class PanelExtractor:
             # Save panel image
             panel_path = f'{self.config.output_folder}/panel_{idx}.jpg'
             cv2.imwrite(str(panel_path), panel_img)
+            all_panel_path.append(panel_path)
             
             # Draw visualization
             cv2.rectangle(visual_output, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -181,4 +183,4 @@ class PanelExtractor:
         cv2.imwrite(str(visual_path), visual_output)
         
         print(f"✅ Extracted {len(panels)} panels after filtering.")
-        return panel_images, panel_data
+        return panel_images, panel_data, all_panel_path
