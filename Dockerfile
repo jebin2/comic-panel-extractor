@@ -22,11 +22,14 @@ ENV HOME=/home/user \
     IS_DOCKER=True \
     SERVER_PORT=7860
 
-COPY --chown=user requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+# COPY --chown=user requirements.txt .
+# RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Copy app code
 COPY --chown=user . .
+
+# Install the package from the current directory
+RUN pip install --no-cache-dir --user .
 
 # Entry point
 CMD ["serve-comic-panel-extractor"]

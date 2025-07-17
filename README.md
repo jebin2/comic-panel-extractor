@@ -7,7 +7,7 @@ sdk: docker
 pinned: false
 ---
 
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+https://jebin2-comic-panel-extractor.hf.space/
 
 # Comic Panel Extractor
 
