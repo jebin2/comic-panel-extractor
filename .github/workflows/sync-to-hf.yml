@@ -1,0 +1,21 @@
+name: Sync to Hugging Face hub
+
+on:
+  push:
+    branches: [main]  # Trigger on push to main branch
+  workflow_dispatch:  # Allow manual run
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true   # Enable LFS support
+      - name: Push to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git remote add space https://jebin2:$HF_TOKEN@huggingface.co/spaces/jebin2/comic-panel-extractor || true
+          git push --force space main
