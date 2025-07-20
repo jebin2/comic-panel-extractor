@@ -34,13 +34,16 @@ class ComicPanelExtractor:
         # Step 2: Preprocess image
         _, _, processed_image_path = self.image_processor.preprocess_image(masked_image_path)
 
-        # Step 3: Thin border line
+        # Step 3: Remove Inner Sketch
+        processed_image_path = self.image_processor.remove_inner_sketch(processed_image_path)
+
+        # Step 4: Thin border line
         processed_image_path = self.image_processor.thin_image_borders(processed_image_path)
 
         # Step 3: Clean dilated image
         # processed_image_path = self.image_processor.clean_dilated_image(processed_image_path)
         
-        # Step 4: Extract panels
+        # Step 5: Extract panels
         panel_images, panel_data, all_panel_path = self.panel_extractor.extract_panels(
             processed_image_path
         )

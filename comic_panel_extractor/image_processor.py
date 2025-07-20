@@ -73,7 +73,40 @@ class ImageProcessor:
         # Save result
         return inverted, black_pixels > white_pixels
 
-    def thin_image_borders(self, processed_image_path: str, output_filename: str = "5_thin_border.jpg") -> str:
+    def remove_inner_sketch(self, input_path, output_filename="5_remove_inner_sketch.jpg", min_area_ratio=0):
+        img = cv2.imread(input_path, cv2.IMREAD_GRAYSCALE)
+        height, width = img.shape
+
+        # Threshold image to binary
+        _, binary = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY_INV)
+
+        # Find all contours
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Create mask for large contours (likely panel borders)
+        mask = np.zeros_like(binary)
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area >= (height * width * min_area_ratio):
+                cv2.drawContours(mask, [cnt], -1, 255, thickness=cv2.FILLED)
+
+        # Apply mask to original image (keeps only large borders)
+        cleaned = cv2.bitwise_and(binary, binary, mask=mask)
+
+        # Optional: Apply morphological opening to clean tiny sketch lines
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_OPEN, kernel)
+
+        # Invert back if needed
+        cleaned = cv2.bitwise_not(cleaned)
+
+        # Save
+        output_path = f'{self.config.output_folder}/{output_filename}'
+        cv2.imwrite(output_path, cleaned)
+        print(f"✅ Remove Inner Sketch image saved to: {output_path}")
+        return str(output_path)
+
+    def thin_image_borders(self, processed_image_path: str, output_filename: str = "6_thin_border.jpg") -> str:
         """
         Clean dilated image by thinning thick borders and removing hanging clusters.
         """
