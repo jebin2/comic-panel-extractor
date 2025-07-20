@@ -35,7 +35,7 @@ class PanelExtractor:
     def __init__(self, config: Config):
         self.config = config
     
-    def extract_panels(self, dilated_path: str, row_thresh: int = 20, col_thresh: int = 20, min_width_ratio: float = 0.1, min_height_ratio: float = 0.1, min_area_ratio: float = 0.005) -> Tuple[List[np.ndarray], List[PanelData]]:
+    def extract_panels(self, dilated_path: str, row_thresh: int = 20, col_thresh: int = 20, min_width_ratio: float = 0.1, min_height_ratio: float = 0.1, min_area_ratio: float = 0.01) -> Tuple[List[np.ndarray], List[PanelData]]:
         """Extract comic panels using black percentage scan."""
         dilated = cv2.imread(dilated_path, cv2.IMREAD_GRAYSCALE)
         original = cv2.imread(self.config.input_path)

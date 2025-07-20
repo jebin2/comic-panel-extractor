@@ -62,8 +62,6 @@ class ImageProcessor:
         black_pixels = np.sum(binary == 0)
         white_pixels = np.sum(binary == 255)
 
-        print(f"Black pixels: {black_pixels}, White pixels: {white_pixels}")
-
         # If black dominates, invert
         if black_pixels > white_pixels:
             print("🔄 Inverting image because black > white")

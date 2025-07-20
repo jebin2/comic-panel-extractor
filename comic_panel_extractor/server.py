@@ -22,8 +22,6 @@ static_folder = "./static"
 output_folder = os.path.abspath(os.path.realpath(os.path.join(os.path.dirname(__file__), f'./{base_output_folder}')))
 static_folder = os.path.abspath(os.path.realpath(os.path.join(os.path.dirname(__file__), static_folder)))
 
-print(output_folder)
-print(static_folder)
 # Create directories for uploads and outputs
 os.makedirs(output_folder, exist_ok=True)
 os.makedirs(static_folder, exist_ok=True)
