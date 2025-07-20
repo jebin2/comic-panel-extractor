@@ -35,10 +35,13 @@ class ImageProcessor:
         # Convert to grayscale and binary
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         _, binary = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+        binary, is_inverted = self.invert_if_black_dominates(binary)
 
-        # Dilate to strengthen borders
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-        dilated = cv2.dilate(binary, kernel, iterations=2)
+        if not is_inverted:
+            # Dilate to strengthen borders
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+            dilated = cv2.dilate(binary, kernel, iterations=2)
+        else: dilated = binary
 
         # Save intermediate results
         gray_path = f'{self.config.output_folder}/2_gray.jpg'
@@ -50,6 +53,27 @@ class ImageProcessor:
         cv2.imwrite(str(dilated_path), dilated)
         
         return str(gray_path), str(binary_path), str(dilated_path)
+
+    def invert_if_black_dominates(self, binary):
+        # Threshold to binary image
+        _, binary = cv2.threshold(binary, 127, 255, cv2.THRESH_BINARY)
+
+        # Count black and white pixels
+        black_pixels = np.sum(binary == 0)
+        white_pixels = np.sum(binary == 255)
+
+        print(f"Black pixels: {black_pixels}, White pixels: {white_pixels}")
+
+        # If black dominates, invert
+        if black_pixels > white_pixels:
+            print("🔄 Inverting image because black > white")
+            inverted = cv2.bitwise_not(binary)
+        else:
+            print("✅ No inversion needed, white >= black")
+            inverted = binary
+
+        # Save result
+        return inverted, black_pixels > white_pixels
 
     def thin_image_borders(self, processed_image_path: str, output_filename: str = "5_thin_border.jpg") -> str:
         """
