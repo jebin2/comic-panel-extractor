@@ -102,7 +102,7 @@ class PanelExtractor:
         width = dilated.shape[1]
         row_slice = dilated[y1:y2, :]
         col_black_percentage = np.sum(row_slice == 0, axis=0) / (y2 - y1) * 100
-        
+
         # Find column gutters
         col_gutters = []
         in_gutter = False
@@ -169,7 +169,7 @@ class PanelExtractor:
             panel_data.append(panel_info)
             
             # Save panel image
-            panel_path = f'{self.config.output_folder}/panel_{idx}.jpg'
+            panel_path = f'{self.config.output_folder}/panel_{idx}_{(x1, y1, x2, y2)}.jpg'
             cv2.imwrite(str(panel_path), panel_img)
             all_panel_path.append(panel_path)
             

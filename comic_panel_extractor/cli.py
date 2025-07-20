@@ -68,8 +68,6 @@ Examples:
 					for key, value in config_data.items():
 						if hasattr(config, key):
 							setattr(config, key, value)
-				if args.verbose:
-					print(f"📄 Loaded configuration from: {args.config}")
 			except Exception as e:
 				print(f"⚠️  Warning: Could not load config file: {e}", file=sys.stderr)
 		

@@ -50,9 +50,40 @@ class ImageProcessor:
         cv2.imwrite(str(dilated_path), dilated)
         
         return str(gray_path), str(binary_path), str(dilated_path)
+
+    def thin_image_borders(self, processed_image_path: str, output_filename: str = "5_thin_border.jpg") -> str:
+        """
+        Clean dilated image by thinning thick borders and removing hanging clusters.
+        """
+        from skimage.morphology import skeletonize, remove_small_objects
+        from skimage.measure import label
+
+        # Load image
+        img = cv2.imread(processed_image_path, cv2.IMREAD_GRAYSCALE)
+        _, binary = cv2.threshold(img, 128, 1, cv2.THRESH_BINARY_INV)  # invert, binary mask (0,1)
+
+        # Skeletonize
+        skeleton = skeletonize(binary).astype(np.uint8)
+
+        # Remove small hanging clusters
+        labeled = label(skeleton, connectivity=2)
+        cleaned = remove_small_objects(labeled, min_size=150)  # Adjust min_size for more/less pruning
+
+        # Convert back to 0–255 uint8 image
+        final = (cleaned > 0).astype(np.uint8) * 255
+
+        # Invert back if needed
+        result = 255 - final
+
+        # Save
+        output_path = f'{self.config.output_folder}/{output_filename}'
+        cv2.imwrite(output_path, result)
+        print(f"✅ Cleaned and thinned image saved to: {output_path}")
+        return str(output_path)
+
     
     def clean_dilated_image(self, dilated_path: str, 
-                           output_filename: str = "5_dilated_cleaned.jpg",
+                           output_filename: str = "6_dilated_cleaned.jpg",
                            max_neighbors: int = 2) -> str:
         """Clean dilated image by thinning thick borders."""
         dilated = cv2.imread(dilated_path, cv2.IMREAD_GRAYSCALE)
