@@ -209,3 +209,4 @@ temp_dir
 input.jpg
 comic_panel_extractor/api_outputs/
 temp.py
+test*.jpg

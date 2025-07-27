@@ -32,10 +32,11 @@ class ComicPanelExtractor:
         masked_image_path = self.image_processor.mask_text_regions([bubble["bbox"] for bubble in text_bubbles])
         
         # Step 2: Preprocess image
-        _, _, processed_image_path = self.image_processor.preprocess_image(masked_image_path)
+        _, _, processed_image_path, is_inverted = self.image_processor.preprocess_image(masked_image_path)
 
-        # Step 3: Remove Inner Sketch
-        processed_image_path = self.image_processor.remove_inner_sketch(processed_image_path)
+        if is_inverted:
+            # Step 3: Remove Inner Sketch
+            processed_image_path = self.image_processor.remove_inner_sketch(processed_image_path)
 
         # Step 4: Thin border line
         processed_image_path = self.image_processor.thin_image_borders(processed_image_path)

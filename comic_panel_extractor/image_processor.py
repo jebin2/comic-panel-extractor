@@ -52,7 +52,7 @@ class ImageProcessor:
         cv2.imwrite(str(binary_path), binary)
         cv2.imwrite(str(dilated_path), dilated)
         
-        return str(gray_path), str(binary_path), str(dilated_path)
+        return str(gray_path), str(binary_path), str(dilated_path), is_inverted
 
     def invert_if_black_dominates(self, binary):
         # Threshold to binary image
