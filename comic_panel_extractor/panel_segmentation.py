@@ -174,7 +174,7 @@ def create_image_with_panels_removed(
     segmentation_mask: np.ndarray,
     output_folder: str,
     output_path: str,
-    save_debug: False
+    save_debug: True
 ) -> None:
     """
     Create a version of the original image with detected panels blacked out.
@@ -219,7 +219,7 @@ def main(output_folder, input_image_path, original_image_path):
     # Load the input image
     image = imageio.imread(input_image_path)
     original_image = imageio.imread(original_image_path)
-    save_debug = True
+    save_debug = False
     # Create segmentation mask
     segmentation_mask = create_segmentation_mask(image, save_debug=save_debug)
 
