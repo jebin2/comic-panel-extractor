@@ -230,6 +230,18 @@ class PanelExtractor:
         for idx, (x1, y1, x2, y2) in enumerate(panels, 1):
             # Extract panel image
             panel_img = original[y1:y2, x1:x2]
+
+            # Check if more than 90% pixels are black
+            gray = cv2.cvtColor(panel_img, cv2.COLOR_BGR2GRAY)
+            black_pixels = np.sum(gray < 30)  # pixel intensity <30 considered black
+            total_pixels = gray.size
+            black_ratio = black_pixels / total_pixels
+
+            if black_ratio > 0.9:
+                print(f"⚠️ Skipping panel #{idx} — {round(black_ratio * 100, 2)}% black")
+                continue
+
+            # Add to results
             panel_images.append(panel_img)
             
             # Create panel data
@@ -250,5 +262,5 @@ class PanelExtractor:
         visual_path = f'{self.config.output_folder}/panels_visualization.jpg'
         cv2.imwrite(str(visual_path), visual_output)
         
-        print(f"✅ Extracted {len(panels)} panels after filtering.")
+        print(f"✅ Extracted {len(panel_images)} panels after filtering.")
         return panel_images, panel_data, all_panel_path
