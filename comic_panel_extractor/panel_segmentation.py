@@ -81,7 +81,7 @@ def extract_fully_white_panels(
         total_pixels = region.image.size
         black_ratio = black_pixel_count / total_pixels
 
-        if black_ratio > 0.02:  # Allow up to 1% black pixels
+        if black_ratio > 0.05:  # Allow up to 1% black pixels
             print(f"❌ Black ratio panel #{idx} — {round(black_ratio * 100, 2)}% black")
             # Save debug info if desired
             if save_debug:
