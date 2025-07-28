@@ -36,7 +36,7 @@ class PanelExtractor:
     def __init__(self, config: Config):
         self.config = config
     
-    def extract_panels(self, dilated_path: str, row_thresh: int = 20, col_thresh: int = 20, min_width_ratio: float = 0.001, min_height_ratio: float = 0.001, min_area_ratio: float = 0) -> Tuple[List[np.ndarray], List[PanelData]]:
+    def extract_panels(self, dilated_path: str, row_thresh: int = 20, col_thresh: int = 20) -> Tuple[List[np.ndarray], List[PanelData]]:
         """Extract comic panels using black percentage scan."""
         dilated = cv2.imread(dilated_path, cv2.IMREAD_GRAYSCALE)
         original = cv2.imread(self.config.input_path)
@@ -47,7 +47,7 @@ class PanelExtractor:
         height, width = dilated.shape
         
         # Find row gutters and panel rows
-        panel_rows = self._find_panel_rows(dilated, row_thresh, min_height_ratio)
+        panel_rows = self._find_panel_rows(dilated, row_thresh)
         
         # Extract panels from each row
         all_panels = []
@@ -57,7 +57,7 @@ class PanelExtractor:
         
         # Filter panels by size
         filtered_panels = self._filter_panels_by_size(
-            all_panels, width, height, min_width_ratio, min_height_ratio, min_area_ratio
+            all_panels, width, height
         )
         
         # Extract panel images and save
@@ -67,7 +67,7 @@ class PanelExtractor:
         
         return panel_images, panel_data, all_panel_path
     
-    def _find_panel_rows(self, dilated: np.ndarray, row_thresh: int, min_height_ratio: float) -> List[Tuple[int, int]]:
+    def _find_panel_rows(self, dilated: np.ndarray, row_thresh: int) -> List[Tuple[int, int]]:
         """Find panel rows where consecutive rows meet the threshold and height constraint."""
         height, width = dilated.shape
 
@@ -92,7 +92,7 @@ class PanelExtractor:
                 if y != start_row:
                     # Only extend if combined height meets min_height_ratio
                     combined_height = y - start_row + 1
-                    if combined_height / height >= min_height_ratio:
+                    if combined_height / height >= self.config.min_height_ratio:
                         prev_row = y
                         row_gutters.append((start_row, prev_row))
                         start_row = y
@@ -115,7 +115,7 @@ class PanelExtractor:
 
         return row_gutters
 
-    def _find_panel_columns(self, dilated: np.ndarray, col_thresh: int, min_width_ratio: float) -> List[Tuple[int, int]]:
+    def _find_panel_columns(self, dilated: np.ndarray, col_thresh: int) -> List[Tuple[int, int]]:
         """
         Find panel columns where consecutive columns meet the threshold and width constraint.
         """
@@ -142,7 +142,7 @@ class PanelExtractor:
                 if x != start_col:
                     # Only extend if combined width meets min_width_ratio
                     combined_width = x - start_col + 1
-                    if combined_width / width >= min_width_ratio:
+                    if combined_width / width >= self.config.min_width_ratio:
                         prev_col = x
                         col_gutters.append((start_col, prev_col))
                         start_col = x
@@ -197,28 +197,25 @@ class PanelExtractor:
         
         return [(x1, y1, x2, y2) for x1, x2 in panel_cols]
     
-    def _filter_panels_by_size(self, panels: List[Tuple[int, int, int, int]], 
-                              width: int, height: int, min_width_ratio: float, 
-                              min_height_ratio: float, min_area_ratio: float) -> List[Tuple[int, int, int, int]]:
+    def _filter_panels_by_size(self, panels: List[Tuple[int, int, int, int]], width: int, height: int) -> List[Tuple[int, int, int, int]]:
         """Filter panels by size constraints."""
-        # Remove very small panels first
-        panels = [(x1, y1, x2, y2) for x1, y1, x2, y2 in panels 
-                 if (x2 - x1) * (y2 - y1) >= (width * height) * min_area_ratio]
-        
-        if not panels:
-            return []
-        
-        # Calculate average dimensions for smart filtering
-        panel_widths = [x2 - x1 for x1, _, x2, _ in panels]
-        panel_heights = [y2 - y1 for _, y1, _, y2 in panels]
-        avg_width = np.mean(panel_widths)
-        avg_height = np.mean(panel_heights)
-        
-        min_allowed_width = max(avg_width * 0.5, width * min_width_ratio)
-        min_allowed_height = max(avg_height * 0.5, height * min_height_ratio)
-        
-        return [(x1, y1, x2, y2) for x1, y1, x2, y2 in panels 
-                if (x2 - x1) >= min_allowed_width and (y2 - y1) >= min_allowed_height]
+        new_panel = []
+        image_area = width * height
+
+        for x1, y1, x2, y2 in panels:
+            w = x2 - x1  # Corrected
+            h = y2 - y1  # Corrected
+            area = w * h
+
+            if (
+                area >= self.config.min_area_ratio * image_area and
+                w >= self.config.min_width_ratio * width and
+                h >= self.config.min_height_ratio * height
+            ):
+                new_panel.append((x1, y1, x2, y2))
+
+        return new_panel
+
 
     def count_panel_files(self, folder_path: str) -> int:
         """

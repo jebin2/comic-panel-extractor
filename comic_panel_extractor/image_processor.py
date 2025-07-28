@@ -34,15 +34,22 @@ class ImageProcessor:
 
         # Convert to grayscale and binary
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        _, binary = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+        # _, binary = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+
+        # Apply Gaussian blur to reduce noise
+        blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+
+        # Canny edge detection
+        edges = cv2.Canny(blurred, threshold1=50, threshold2=150, apertureSize=3)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
         is_inverted = False
         # binary, is_inverted = self.invert_if_black_dominates(binary)
 
         if not is_inverted:
             # Dilate to strengthen borders
             kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-            dilated = cv2.dilate(binary, kernel, iterations=2)
-        else: dilated = binary
+            dilated = cv2.dilate(edges, kernel, iterations=2)
+        else: dilated = edges
 
         # Save intermediate results
         gray_path = f'{self.config.output_folder}/2_gray.jpg'
@@ -50,7 +57,7 @@ class ImageProcessor:
         dilated_path = f'{self.config.output_folder}/4_dilated.jpg'
         
         cv2.imwrite(str(gray_path), gray)
-        cv2.imwrite(str(binary_path), binary)
+        cv2.imwrite(str(binary_path), edges)
         cv2.imwrite(str(dilated_path), dilated)
         
         return str(gray_path), str(binary_path), str(dilated_path), is_inverted
@@ -74,7 +81,7 @@ class ImageProcessor:
         # Save result
         return inverted, black_pixels > white_pixels
 
-    def remove_inner_sketch(self, input_path, output_filename="5_remove_inner_sketch.jpg", min_area_ratio=0):
+    def remove_inner_sketch(self, input_path, output_filename="5_remove_inner_sketch.jpg"):
         img = cv2.imread(input_path, cv2.IMREAD_GRAYSCALE)
         height, width = img.shape
 
@@ -88,7 +95,7 @@ class ImageProcessor:
         mask = np.zeros_like(binary)
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if area >= (height * width * min_area_ratio):
+            if area >= (height * width * self.config.min_area_ratio):
                 cv2.drawContours(mask, [cnt], -1, 255, thickness=cv2.FILLED)
 
         # Apply mask to original image (keeps only large borders)
@@ -115,11 +122,19 @@ class ImageProcessor:
         from skimage.measure import label
 
         # Load image
-        img = cv2.imread(processed_image_path, cv2.IMREAD_GRAYSCALE)
-        _, binary = cv2.threshold(img, 128, 1, cv2.THRESH_BINARY_INV)  # invert, binary mask (0,1)
+        img = cv2.imread(processed_image_path)
+        # Convert to grayscale and binary
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # _, binary = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+
+        # Apply Gaussian blur to reduce noise
+        blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+
+        # Canny edge detection
+        edges = cv2.Canny(blurred, threshold1=50, threshold2=150, apertureSize=3)
 
         # Skeletonize
-        skeleton = skeletonize(binary).astype(np.uint8)
+        skeleton = skeletonize(edges).astype(np.uint8)
 
         # Remove small hanging clusters
         labeled = label(skeleton, connectivity=2)
