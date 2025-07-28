@@ -4,6 +4,7 @@ from .config import Config
 import numpy as np
 import cv2
 from dataclasses import dataclass
+import os
 
 @dataclass
 class PanelData:
@@ -218,49 +219,98 @@ class PanelExtractor:
         
         return [(x1, y1, x2, y2) for x1, y1, x2, y2 in panels 
                 if (x2 - x1) >= min_allowed_width and (y2 - y1) >= min_allowed_height]
-    
-    def _save_panels(self, panels: List[Tuple[int, int, int, int]], 
-                    original: np.ndarray, width: int, height: int) -> Tuple[List[np.ndarray], List[PanelData]]:
+
+    def count_panel_files(self, folder_path: str) -> int:
+        """
+        Count the number of files in a folder that start with 'panel_'.
+
+        Args:
+            folder_path: Path to the folder to search.
+
+        Returns:
+            Number of files starting with 'panel_'.
+        """
+        if not os.path.exists(folder_path):
+            print(f"Folder does not exist: {folder_path}")
+            return 0
+
+        return len([
+            fname for fname in os.listdir(folder_path)
+            if fname.startswith("panel_") and os.path.isfile(os.path.join(folder_path, fname))
+        ])
+
+    def _save_panels(self, panels: List[Tuple[int, int, int, int]], original: np.ndarray, width: int, height: int) -> Tuple[List[np.ndarray], List[PanelData], List[str]]:
         """Save panel images and return panel data."""
         visual_output = original.copy()
         panel_images = []
         panel_data = []
         all_panel_path = []
-        
-        for idx, (x1, y1, x2, y2) in enumerate(panels, 1):
-            # Extract panel image
-            panel_img = original[y1:y2, x1:x2]
 
-            # Check if more than 90% pixels are black
+        panel_idx = self.count_panel_files(self.config.output_folder)
+        black_overlay_input = cv2.imread(self.config.black_overlay_input_path)
+
+        image_area = width * height
+        maybe_full_page_panel = None  # Store panel that is ≥90% of the page
+
+        for idx, (x1, y1, x2, y2) in enumerate(panels, 1):
+            # Extract panel image from black_overlay_input
+            panel_img = black_overlay_input[y1:y2, x1:x2]
+
+            # Check for mostly black content
             gray = cv2.cvtColor(panel_img, cv2.COLOR_BGR2GRAY)
-            black_pixels = np.sum(gray < 30)  # pixel intensity <30 considered black
+            black_pixels = np.sum(gray < 30)
             total_pixels = gray.size
             black_ratio = black_pixels / total_pixels
 
-            if black_ratio > 0.9:
+            if black_ratio > 0.8:
                 print(f"⚠️ Skipping panel #{idx} — {round(black_ratio * 100, 2)}% black")
                 continue
+            else:
+                print(f"✅ Black ratio panel #{idx} — {round(black_ratio * 100, 2)}% black")
 
-            # Add to results
+            # Check if this panel is ≥90% of the full image
+            panel_area = (x2 - x1) * (y2 - y1)
+            if panel_area >= 0.9 * image_area:
+                print(f"⚠️ Panel #{idx} covers ≥90% of the image — marked for potential use only")
+                maybe_full_page_panel = (idx, (x1, y1, x2, y2))
+                continue  # Skip for now
+
+            # Save valid smaller panel
+            panel_img = visual_output[y1:y2, x1:x2]
             panel_images.append(panel_img)
-            
-            # Create panel data
             panel_info = PanelData.from_coordinates(x1, y1, x2, y2)
             panel_data.append(panel_info)
-            
-            # Save panel image
-            panel_path = f'{self.config.output_folder}/panel_{idx}_{(x1, y1, x2, y2)}.jpg'
+
+            panel_idx += 1
+            panel_path = f'{self.config.output_folder}/panel_{panel_idx}_{(x1, y1, x2, y2)}.jpg'
             cv2.imwrite(str(panel_path), panel_img)
             all_panel_path.append(panel_path)
-            
-            # Draw visualization
+
             cv2.rectangle(visual_output, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(visual_output, f"#{idx}", (x1+5, y1+25),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-        
-        # Save visualization
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+
+        # If no valid panels were saved, and we had a full-page one, save it
+        if not panel_images and maybe_full_page_panel and panel_idx == 0:
+            idx, (x1, y1, x2, y2) = maybe_full_page_panel
+            panel_img = visual_output[y1:y2, x1:x2]
+            panel_images.append(panel_img)
+            panel_info = PanelData.from_coordinates(x1, y1, x2, y2)
+            panel_data.append(panel_info)
+
+            panel_idx += 1
+            panel_path = f'{self.config.output_folder}/panel_{panel_idx}_{(x1, y1, x2, y2)}.jpg'
+            cv2.imwrite(str(panel_path), panel_img)
+            all_panel_path.append(panel_path)
+
+            cv2.rectangle(visual_output, (x1, y1), (x2, y2), (255, 0, 0), 2)
+            cv2.putText(visual_output, f"#full", (x1+5, y1+25),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
+            print(f"✅ Saved full-page panel as fallback")
+
+        # Save final visualization
         visual_path = f'{self.config.output_folder}/panels_visualization.jpg'
         cv2.imwrite(str(visual_path), visual_output)
-        
+
         print(f"✅ Extracted {len(panel_images)} panels after filtering.")
         return panel_images, panel_data, all_panel_path

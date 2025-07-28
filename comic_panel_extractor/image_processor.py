@@ -11,11 +11,11 @@ class ImageProcessor:
     def __init__(self, config: Config):
         self.config = config
     
-    def mask_text_regions(self, bboxes: List[List[int]], output_filename: str = "1_text_removed.jpg", color: Tuple[int, int, int] = (0, 0, 0)) -> str:
+    def mask_text_regions(self, input_path, bboxes: List[List[int]], output_filename: str = "1_text_removed.jpg", color: Tuple[int, int, int] = (0, 0, 0)) -> str:
         """Mask text regions in the image to reduce panel extraction noise."""
-        image = cv2.imread(self.config.input_path)
+        image = cv2.imread(input_path)
         if image is None:
-            raise FileNotFoundError(f"Could not load image: {self.config.input_path}")
+            raise FileNotFoundError(f"Could not load image: {input_path}")
 
         for bbox in bboxes:
             x1, y1, x2, y2 = bbox
@@ -26,16 +26,17 @@ class ImageProcessor:
         print(f"✅ Text-masked image saved to: {output_path}")
         return str(output_path)
     
-    def preprocess_image(self, masked_image_path) -> Tuple[str, str, str]:
+    def preprocess_image(self, processed_image_path) -> Tuple[str, str, str]:
         """Preprocess image for panel extraction."""
-        image = cv2.imread(masked_image_path)
+        image = cv2.imread(processed_image_path)
         if image is None:
-            raise FileNotFoundError(f"Could not load image: {masked_image_path}")
+            raise FileNotFoundError(f"Could not load image: {processed_image_path}")
 
         # Convert to grayscale and binary
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         _, binary = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
-        binary, is_inverted = self.invert_if_black_dominates(binary)
+        is_inverted = False
+        # binary, is_inverted = self.invert_if_black_dominates(binary)
 
         if not is_inverted:
             # Dilate to strengthen borders

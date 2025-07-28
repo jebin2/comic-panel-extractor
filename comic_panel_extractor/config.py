@@ -4,6 +4,7 @@ from dataclasses import dataclass
 class Config:
     """Configuration settings for the comic-to-video pipeline."""
     input_path: str = ""
+    black_overlay_input_path: str = ""
     output_folder: str = "temp_dir"
     distance_threshold: int = 70
     vertical_threshold: int = 30
