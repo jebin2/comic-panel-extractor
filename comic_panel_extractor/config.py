@@ -10,6 +10,9 @@ class Config:
     vertical_threshold: int = 30
     text_cood_file_name: str = "detect_and_group_text.json"
     min_text_length: int = 2
+    min_area_ratio: float = 0.05
+    min_width_ratio: float = 0.05
+    min_height_ratio: float = 0.05
 
 def get_text_cood_file_path(config: Config):
     return f'{config.output_folder}/{config.text_cood_file_name}'
