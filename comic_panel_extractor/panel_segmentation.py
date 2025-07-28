@@ -174,7 +174,7 @@ def create_image_with_panels_removed(
     segmentation_mask: np.ndarray,
     output_folder: str,
     output_path: str,
-    save_debug: True
+    save_debug: False
 ) -> None:
     """
     Create a version of the original image with detected panels blacked out.
