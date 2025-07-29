@@ -5,6 +5,7 @@ import numpy as np
 import cv2
 from dataclasses import dataclass
 import os
+import re
 
 @dataclass
 class PanelData:
@@ -80,25 +81,23 @@ class PanelExtractor:
         # Forcefully include first and last row
         if 0 not in black_rows:
             black_rows.insert(0, 0)
-        if (height - 1) not in black_rows:
-            black_rows.append(height - 1)
+        if (height) not in black_rows:
+                black_rows.append(height)
 
+        print(f'📄 Row Points:: {black_rows}')
         # Group consecutive rows into gutters
         row_gutters = []
         if black_rows:
             start_row = black_rows[0]
-            prev_row = black_rows[0]
-            for y in black_rows:
-                if y != start_row:
-                    # Only extend if combined height meets min_height_ratio
-                    combined_height = y - start_row + 1
-                    if combined_height / height >= self.config.min_height_ratio:
-                        prev_row = y
-                        row_gutters.append((start_row, prev_row))
-                        start_row = y
-
-            if start_row != prev_row:
-                row_gutters.append((start_row, prev_row))  # Add last gutter
+            for i, end_row in enumerate(black_rows):
+                # Only extend if combined height meets min_height_ratio
+                combined_height = end_row - start_row
+                if combined_height / height >= self.config.min_height_ratio:
+                    print(f'📄 {i+1}) Start: {start_row:04d} | End: {end_row:04d} | Total: {combined_height:04d} | Ratio: {(combined_height / height):04f}')
+                    row_gutters.append((start_row, end_row))
+                    start_row = end_row
+                elif len(black_rows) == i + 1:
+                    row_gutters[-1] = (row_gutters[-1][0], end_row)
 
         print(f"✅ Detected panel row gutters: {row_gutters}")
 
@@ -236,6 +235,35 @@ class PanelExtractor:
             if fname.startswith("panel_") and os.path.isfile(os.path.join(folder_path, fname))
         ])
 
+    def load_existing_panels_from_folder(self, folder: str) -> List[Tuple[int, int, int, int]]:
+        """
+        Parses filenames like 'panel_1_(1006, 176, 1757, 1085).jpg' and extracts coordinates.
+        """
+        pattern = re.compile(r"panel_\d+_\((\d+), (\d+), (\d+), (\d+)\)\.jpg")
+        coords = []
+        for fname in os.listdir(folder):
+            match = pattern.match(fname)
+            if match:
+                coords.append(tuple(map(int, match.groups())))
+        return coords
+
+    def is_fully_contained(self, x1: int, y1: int, x2: int, y2: int,
+                       boxes: List[Tuple[int, int, int, int]],
+                       threshold: int = 200) -> bool:
+        for ex1, ey1, ex2, ey2 in boxes:
+            # Case 1: Fully contained
+            if x1 >= ex1 and y1 >= ey1 and x2 <= ex2 and y2 <= ey2:
+                return True
+
+            # Case 2: Near containment (within threshold)
+            if (
+                x1 >= ex1 - threshold and y1 >= ey1 - threshold and
+                x2 <= ex2 + threshold and y2 <= ey2 + threshold
+            ):
+                return True
+
+        return False
+
     def _save_panels(self, panels: List[Tuple[int, int, int, int]], original: np.ndarray, width: int, height: int) -> Tuple[List[np.ndarray], List[PanelData], List[str]]:
         """Save panel images and return panel data."""
         visual_output = original.copy()
@@ -247,32 +275,46 @@ class PanelExtractor:
         black_overlay_input = cv2.imread(self.config.black_overlay_input_path)
 
         image_area = width * height
-        maybe_full_page_panel = None  # Store panel that is ≥90% of the page
+        maybe_full_page_panel = None
+
+        # Load existing panels from disk
+        existing_coords = self.load_existing_panels_from_folder(self.config.output_folder)
 
         for idx, (x1, y1, x2, y2) in enumerate(panels, 1):
             # Extract panel image from black_overlay_input
             panel_img = black_overlay_input[y1:y2, x1:x2]
 
-            # Check for mostly black content
+            # Check for mostly black/white
             gray = cv2.cvtColor(panel_img, cv2.COLOR_BGR2GRAY)
-            black_pixels = np.sum(gray < 30)
             total_pixels = gray.size
+            black_pixels = np.sum(gray < 30)
+            white_pixels = np.sum(gray > 240)
             black_ratio = black_pixels / total_pixels
+            white_ratio = white_pixels / total_pixels
 
             if black_ratio > 0.8:
                 print(f"⚠️ Skipping panel #{idx} — {round(black_ratio * 100, 2)}% black")
                 continue
+            elif white_ratio > 0.9:
+                print(f"⚠️ Skipping panel #{idx} — {round(white_ratio * 100, 2)}% white")
+                continue
             else:
-                print(f"✅ Black ratio panel #{idx} — {round(black_ratio * 100, 2)}% black")
+                print(f"✅ Panel #{idx} — {round(black_ratio * 100, 2)}% black, {round(white_ratio * 100, 2)}% white")
 
-            # Check if this panel is ≥90% of the full image
             panel_area = (x2 - x1) * (y2 - y1)
             if panel_area >= 0.9 * image_area:
                 print(f"⚠️ Panel #{idx} covers ≥90% of the image — marked for potential use only")
                 maybe_full_page_panel = (idx, (x1, y1, x2, y2))
-                continue  # Skip for now
+                continue
 
-            # Save valid smaller panel
+            # Check for full containment in existing and current session
+            already_saved_coords = existing_coords + [ (pd.x_start, pd.y_start, pd.x_end, pd.y_end) for pd in panel_data ]
+
+            if self.is_fully_contained(x1, y1, x2, y2, already_saved_coords):
+                print(f"⚠️ Skipping panel #{idx} — fully contained in existing panel")
+                continue
+
+            # Save panel
             panel_img = visual_output[y1:y2, x1:x2]
             panel_images.append(panel_img)
             panel_info = PanelData.from_coordinates(x1, y1, x2, y2)
@@ -285,9 +327,9 @@ class PanelExtractor:
 
             cv2.rectangle(visual_output, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(visual_output, f"#{idx}", (x1+5, y1+25),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
 
-        # If no valid panels were saved, and we had a full-page one, save it
+        # If no valid panels and full-page backup exists
         if not panel_images and maybe_full_page_panel and panel_idx == 0:
             idx, (x1, y1, x2, y2) = maybe_full_page_panel
             panel_img = visual_output[y1:y2, x1:x2]
@@ -302,7 +344,7 @@ class PanelExtractor:
 
             cv2.rectangle(visual_output, (x1, y1), (x2, y2), (255, 0, 0), 2)
             cv2.putText(visual_output, f"#full", (x1+5, y1+25),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
             print(f"✅ Saved full-page panel as fallback")
 
         # Save final visualization
@@ -311,3 +353,4 @@ class PanelExtractor:
 
         print(f"✅ Extracted {len(panel_images)} panels after filtering.")
         return panel_images, panel_data, all_panel_path
+

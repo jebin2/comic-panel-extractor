@@ -7,3 +7,4 @@ uvicorn
 python-multipart
 jinja2
 scikit-image
+imagehash
