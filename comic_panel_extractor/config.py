@@ -13,6 +13,9 @@ class Config:
     min_area_ratio: float = 0.05
     min_width_ratio: float = 0.05
     min_height_ratio: float = 0.1
+    
+    # Additional parameters for BorderPanelExtractor
+    panel_filename_pattern: str = r"panel_\d+_\((\d+), (\d+), (\d+), (\d+)\)\.jpg"
 
 def get_text_cood_file_path(config: Config):
     return f'{config.output_folder}/{config.text_cood_file_name}'

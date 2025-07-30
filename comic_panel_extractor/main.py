@@ -8,7 +8,7 @@ from .panel_segmentation import main as basic_panel_segmentation
 from typing import List, Tuple
 from pathlib import Path
 import numpy as np
-import json
+from .border_panel_extractor import BorderPanelExtractor
 import shutil
 
 class ComicPanelExtractor:
@@ -28,7 +28,8 @@ class ComicPanelExtractor:
         """Complete pipeline to extract panels from a comic image."""
         print(f"Starting panel extraction for: {self.config.input_path}")
 
-        processed_image_path = basic_panel_segmentation(self.config.output_folder, self.config.input_path, self.config.input_path)
+        processed_image_path = BorderPanelExtractor(self.config).main()
+
         self.config.black_overlay_input_path = processed_image_path
 
         _, _, processed_image_path = self.image_processor.preprocess_image(processed_image_path)

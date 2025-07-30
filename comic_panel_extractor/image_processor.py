@@ -239,9 +239,10 @@ class ImageProcessor:
 
             # Bounding box filter
             if (width < width_ * self.config.min_width_ratio or height < height_ * self.config.min_height_ratio):
-                clean_mask[labeled == region.label] = 0  # Remove small region
-                cv2.rectangle(visual, (minc, minr), (maxc, maxr), (0, 0, 255), 2)
-                continue
+                if (width/width_) < 0.9 and (height/height_) < 0.9:
+                    clean_mask[labeled == region.label] = 0  # Remove small region
+                    cv2.rectangle(visual, (minc, minr), (maxc, maxr), (0, 0, 255), 2)
+                    continue
 
             # Crop and analyze region for line orientation
             region_crop = binary[minr:maxr, minc:maxc]
@@ -270,7 +271,8 @@ class ImageProcessor:
                 cv2.rectangle(visual, (minc, minr), (maxc, maxr), (255, 0, 0), 2)
 
         # Save debug visualization
-        cv2.imwrite(f"{output_folder}/debug_{file_name}", visual)
+        output_path = self.get_output_path(output_folder, f"debug_{file_name}")
+        cv2.imwrite(output_path, visual)
 
         # Invert back to original format: black lines on white
         cleaned = cv2.bitwise_not(clean_mask)
