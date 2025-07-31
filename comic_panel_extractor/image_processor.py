@@ -552,40 +552,53 @@ class ImageProcessor:
         cv2.imwrite(output_path, result)
         return output_path
 
-    def remove_small_continuity_components(self, image_path, file_name="remove_small_continuity_components.jpg", output_folder=None):
+    def remove_small_continuity_components(
+        self,
+        image_path,
+        file_name="remove_small_continuity_components.jpg",
+        output_folder=None,
+    ):
         output_folder = output_folder or self.config.output_folder
+
         # Load the image in grayscale
         img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         if img is None:
             raise ValueError("Unable to load the image. Check the file path.")
 
         height, width = img.shape
-        continuity_threshold = height * self.config.min_height_ratio
+        min_height = height * self.config.min_height_ratio
+        min_width = width * self.config.min_width_ratio
+
         # Threshold to binary (invert if lines are black on white background)
         _, binary = cv2.threshold(img, 128, 255, cv2.THRESH_BINARY_INV)
-        
+
         # Perform connected component labeling (8-connectivity)
         num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
-        
-        # Create a copy for output
-        output = binary.copy()
-        
-        # Iterate over components (skip label 0, which is background)
+
+        # Create output copies
+        cleaned_output = binary.copy()
+        debug_output = cv2.cvtColor(binary.copy(), cv2.COLOR_GRAY2BGR)  # For visualizing removed components
+
         for label in tqdm(range(1, num_labels), desc="Processing labels"):
-            # Get the size (area) of the component
-            size = stats[label, cv2.CC_STAT_AREA]
-            
-            # If size is below threshold, remove the component (set to 0)
-            if size < continuity_threshold:
-                output[labels == label] = 0
-        
-        # Invert back to original style (black lines on white)
-        result = cv2.bitwise_not(output)
-        
-        # Save the result
+            x, y, w, h, area = stats[label]
+
+            # Filter out small components based on width and height
+            if h < min_height and w < min_width:
+                cleaned_output[labels == label] = 0
+                debug_output[labels == label] = [0, 0, 255]  # Mark removed components in red
+
+        # Invert back to original style
+        final_result = cv2.bitwise_not(cleaned_output)
+
+        # Save the final and debug outputs
         output_path = self.get_output_path(output_folder, file_name)
-        cv2.imwrite(output_path, result)
+        debug_path = self.get_output_path(output_folder, file_name.replace(".jpg", "_debug.jpg"))
+
+        cv2.imwrite(output_path, final_result)
+        cv2.imwrite(debug_path, debug_output)
+
         return output_path
+
 
     def connect_horizontal_vertical_gaps(self, image_path, file_name='connected_output.jpg', output_folder=None):
         output_folder = output_folder or self.config.output_folder
