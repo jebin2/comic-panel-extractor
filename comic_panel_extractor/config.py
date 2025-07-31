@@ -11,8 +11,8 @@ class Config:
     text_cood_file_name: str = "detect_and_group_text.json"
     min_text_length: int = 2
     min_area_ratio: float = 0.05
-    min_width_ratio: float = 0.05
-    min_height_ratio: float = 0.1
+    min_width_ratio: float = 0.15
+    min_height_ratio: float = 0.15
     
     # Additional parameters for BorderPanelExtractor
     panel_filename_pattern: str = r"panel_\d+_\((\d+), (\d+), (\d+), (\d+)\)\.jpg"

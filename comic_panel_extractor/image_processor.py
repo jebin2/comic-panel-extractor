@@ -12,6 +12,7 @@ from tqdm import tqdm
 from PIL import Image
 import numpy as np
 from sklearn.cluster import KMeans
+import math
 
 class ImageProcessor:
     """Handles image preprocessing operations."""
@@ -247,6 +248,68 @@ class ImageProcessor:
         cv2.imwrite(output_path, result)
         return output_path
 
+    def to_int_box(self, line):
+        return map(int, line[0])  # Works for both Hough and LSD formats
+
+    def remove_diagonal_lines_and_set_white(self, image_path, file_name="remove_diagonal_lines_and_set_white.jpg", output_folder=None):
+        output_folder = output_folder or self.config.output_folder
+        # Load image
+        image = cv2.imread(image_path)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # Edge detection
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+        edges = cv2.Canny(blurred, 50, 150, apertureSize=3)
+
+        # Dilate to connect broken segments
+        kernel = np.ones((2, 2), np.uint8)
+        edges = cv2.dilate(edges, kernel, iterations=1)
+
+        # More sensitive Hough transform
+        # HoughLinesP_lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=30, minLineLength=5, maxLineGap=10)
+
+        # Detect lines using Hough Transform
+        lsd = cv2.createLineSegmentDetector(0)
+        lines, _, _, _ = lsd.detect(gray)
+
+        # Copy image to edit
+        output = image.copy()
+
+        combined_lines = []
+
+        if lines is not None:
+            combined_lines.extend(lines)
+
+        # if HoughLinesP_lines is not None:
+        #     combined_lines.extend(HoughLinesP_lines)
+
+        if combined_lines is not None:
+            for line in combined_lines:
+                x1, y1, x2, y2 = self.to_int_box(line)  # Convert float to int
+
+                # Calculate angle
+                angle = np.abs(np.arctan2(y2 - y1, x2 - x1) * 180.0 / np.pi)
+
+                # Filter out horizontal and vertical lines
+                if (80 < angle < 100) or (170 < angle < 190) or angle < 10 or angle > 350:
+                    continue
+                else:
+                    # Get bounding box with padding
+                    padding = 2
+                    xmin = min(x1, x2) - padding
+                    xmax = max(x1, x2) + padding
+                    ymin = min(y1, y2) - padding
+                    ymax = max(y1, y2) + padding
+
+                    # Draw white rectangle (erase diagonal line)
+                    cv2.rectangle(output, (xmin, ymin), (xmax, ymax), (255, 255, 255), thickness=-1)
+
+        # Save cleaned image
+        output_path = self.get_output_path(output_folder, file_name)
+        cv2.imwrite(output_path, output)
+        return output_path
+
     def remove_small_regions(self, image_path, file_name="remove_small_regions.jpg", output_folder=None):
         output_folder = output_folder or self.config.output_folder
 
@@ -277,7 +340,7 @@ class ImageProcessor:
             height = maxr - minr
 
             # Bounding box filter
-            if (width < width_ * self.config.min_width_ratio or height < height_ * self.config.min_height_ratio):
+            if width < width_ * self.config.min_width_ratio and height < height_ * self.config.min_height_ratio:
                 if (width/width_) < 0.9 and (height/height_) < 0.9:
                     clean_mask[labeled == region.label] = 0  # Remove small region
                     cv2.rectangle(visual, (minc, minr), (maxc, maxr), (0, 0, 255), 2)
@@ -292,19 +355,18 @@ class ImageProcessor:
                 for line in lines:
                     x1, y1, x2, y2 = line[0]
                     angle = np.abs(np.arctan2(y2 - y1, x2 - x1) * 180.0 / np.pi)
-                    length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+                    # length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+                    line_width = abs(x2 - x1)
+                    line_height = abs(y2 - y1)
 
-                    if 80 < angle < 100:
-                        if length / height_ > self.config.min_height_ratio:
-                            break  # keep region
-                    elif angle < 10 or angle > 170:
-                        if length / width_ > self.config.min_width_ratio:
-                            break  # keep region
+                    if line_height < height_ * self.config.min_height_ratio and line_width < width_ * self.config.min_width_ratio:
+                        break
                 else:
+                    # Only runs if no 'break' occurred
                     # If no qualifying line found, remove region
                     clean_mask[labeled == region.label] = 0
                     cv2.rectangle(visual, (minc, minr), (maxc, maxr), (0, 255, 255), 2)
-            else:
+            elif width < width_ * self.config.min_width_ratio and height < height_ * self.config.min_height_ratio:
                 # No lines, remove region
                 clean_mask[labeled == region.label] = 0
                 cv2.rectangle(visual, (minc, minr), (maxc, maxr), (255, 0, 0), 2)
@@ -602,81 +664,117 @@ class ImageProcessor:
 
     def connect_horizontal_vertical_gaps(self, image_path, file_name='connected_output.jpg', output_folder=None):
         output_folder = output_folder or self.config.output_folder
-        
-        # Load the image in grayscale
-        img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-        if img is None:
-            raise ValueError("Unable to load the image. Check the file path.")
-        height, width = img.shape
-        # Threshold to binary (invert if lines are black on white background)
-        _, binary = cv2.threshold(img, 128, 255, cv2.THRESH_BINARY_INV)
-        
-        rows, cols = binary.shape
-        canvas = binary.copy()  # Work on a copy (lines=255 on black)
 
-        gap_threshold = width * self.config.min_width_ratio
-        # Scan row by row to connect small horizontal gaps
-        for r in range(rows):
-            col = 0
-            while col < cols:
-                if canvas[r, col] == 255:
-                    # Find start and end of current segment
-                    start = col
-                    while col < cols and canvas[r, col] == 255:
-                        col += 1
-                    end = col - 1
-                    
-                    # Look for next segment in the same row
-                    next_start = col
-                    while next_start < cols and canvas[r, next_start] == 0:
-                        next_start += 1
-                    if next_start < cols:
-                        gap = next_start - end - 1
-                        if gap >= 0 and gap <= gap_threshold:
-                            # Fill the gap
-                            for fill_col in range(end + 1, next_start):
-                                canvas[r, fill_col] = 255
-                            col = next_start  # Jump to next segment
-                        else:
-                            col = next_start
-                    else:
-                        col = next_start
-                else:
-                    col += 1
-        gap_threshold = height * self.config.min_height_ratio
-        # Scan column by column to connect small vertical gaps
-        for c in range(cols):
-            row = 0
-            while row < rows:
-                if canvas[row, c] == 255:
-                    # Find start and end of current segment
-                    start = row
-                    while row < rows and canvas[row, c] == 255:
-                        row += 1
-                    end = row - 1
-                    
-                    # Look for next segment in the same column
-                    next_start = row
-                    while next_start < rows and canvas[next_start, c] == 0:
-                        next_start += 1
-                    if next_start < rows:
-                        gap = next_start - end - 1
-                        if gap >= 0 and gap <= gap_threshold:
-                            # Fill the gap
-                            for fill_row in range(end + 1, next_start):
-                                canvas[fill_row, c] = 255
-                            row = next_start  # Jump to next segment
-                        else:
-                            row = next_start
-                    else:
-                        row = next_start
-                else:
-                    row += 1
-        
-        # Invert back to original style (black lines on white)
-        result = cv2.bitwise_not(canvas)
+        image = cv2.imread(image_path)
+        height, width = image.shape[:2]
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+
+        # Detect all lines
+        lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=50, minLineLength=30, maxLineGap=10)
+
+        output = image.copy()
+
+        def angle_of_line(x1, y1, x2, y2):
+            return abs(math.degrees(math.atan2(y2 - y1, x2 - x1)))
+
+        # Filter for only horizontal (≈0°) and vertical (≈90°) lines
+        filtered_lines = []
+        if lines is not None:
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                angle = angle_of_line(x1, y1, x2, y2)
+                min_width = 0
+                min_height = 0
+
+                if angle < 5:
+                    line_width = abs(x2 - x1)
+                    if line_width >= min_width:
+                        filtered_lines.append([x1, y1, x2, y2])
+
+                elif 85 < angle < 95:
+                    line_height = abs(y2 - y1)
+                    if line_height >= min_height:
+                        filtered_lines.append([x1, y1, x2, y2])
+
+
+        # Merge similar lines (if needed)
+        merged_lines = []
+        used = [False] * len(filtered_lines)
+        horizontal_alignment_threshold = 5
+        horizontal_distance_threshold = width * self.config.min_width_ratio
+        vertical_alignment_threshold = 5
+        vertical_distance_threshold = height * self.config.min_height_ratio
+        overlap_allowance = 10
+
+        for i in range(len(filtered_lines)):
+            if used[i]:
+                continue
+            x1a, y1a, x2a, y2a = filtered_lines[i]
+            merged = [x1a, y1a, x2a, y2a]
+            used[i] = True
+            for j in range(i + 1, len(filtered_lines)):
+                if used[j]:
+                    continue
+                x1b, y1b, x2b, y2b = filtered_lines[j]
+
+                # Check if both are horizontal
+                if abs(y1a - y2a) < horizontal_alignment_threshold and abs(y1b - y2b) < horizontal_alignment_threshold and abs(y1a - y1b) < horizontal_distance_threshold:
+                    if max(x1a, x2a) >= min(x1b, x2b) - overlap_allowance or max(x1b, x2b) >= min(x1a, x2a) - overlap_allowance:
+                        merged = [
+                            min(merged[0], merged[2], x1b, x2b),
+                            y1a,
+                            max(merged[0], merged[2], x1b, x2b),
+                            y1a
+                        ]
+                        used[j] = True
+
+                # Check if both are vertical
+                elif abs(x1a - x2a) < vertical_alignment_threshold and abs(x1b - x2b) < vertical_alignment_threshold and abs(x1a - x1b) < vertical_distance_threshold:
+                    if max(y1a, y2a) >= min(y1b, y2b) - overlap_allowance or max(y1b, y2b) >= min(y1a, y2a) - overlap_allowance:
+                        merged = [
+                            x1a,
+                            min(merged[1], merged[3], y1b, y2b),
+                            x1a,
+                            max(merged[1], merged[3], y1b, y2b)
+                        ]
+                        used[j] = True
+
+
+            merged_lines.append(merged)
+
+        # Draw merged lines
+        for x1, y1, x2, y2 in merged_lines:
+            cv2.line(output, (x1, y1), (x2, y2), (0, 0, 0), 20)
         
         # Save the result
         output_path = self.get_output_path(output_folder, file_name)
-        cv2.imwrite(output_path, result)
+        cv2.imwrite(output_path, output)
+        return output_path
+
+    def detect_objects_and_draw_boxess_and_set_white(self, image_path, file_name="all_objects_detected.jpg", output_folder=None):
+        output_folder = output_folder or self.config.output_folder
+
+        # Load image
+        image = cv2.imread(image_path)
+        height, width = image.shape[:2]
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # Threshold to binary
+        _, binary = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV)
+
+        # Find contours (external only or all)
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Draw bounding boxes
+        output = image.copy()
+        for cnt in contours:
+            x, y, w, h = cv2.boundingRect(cnt)
+
+            if h < height * self.config.min_height_ratio and w < width * self.config.min_width_ratio:
+                cv2.rectangle(output, (x, y), (x + w, y + h), (255, 255, 255), -1)
+
+        # Save output
+        output_path = self.get_output_path(output_folder, file_name)
+        cv2.imwrite(output_path, output)
         return output_path
