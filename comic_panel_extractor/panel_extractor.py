@@ -208,7 +208,6 @@ class PanelExtractor:
             area = w * h
 
             if (
-                area >= self.config.min_area_ratio * image_area and
                 w >= self.config.min_width_ratio * width and
                 h >= self.config.min_height_ratio * height
             ):
