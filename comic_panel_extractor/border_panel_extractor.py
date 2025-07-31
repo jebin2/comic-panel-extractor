@@ -138,14 +138,16 @@ class BorderPanelExtractor:
         # Draw bounding rectangles
         img_h, img_w = original_image.shape[:2]
         image_area = img_h * img_w
-        max_ratio = 0.7  # Max box area must be less than 70% of image
         for cnt in contours:
             x, y, w, h = cv2.boundingRect(cnt)
             box_area = w * h
-            if box_area / image_area < max_ratio:
-                minc, minr = x, y
-                maxc, maxr = x + w, y + h
-                accepted_boxes.append((minc, minr, maxc, maxr))
+            # Check size thresholds
+            if box_area > image_area * 0.8 or not self._meets_size_requirements(box_area, w, h, image_area, img_w, img_h):
+                continue
+
+            minc, minr = x, y
+            maxc, maxr = x + w, y + h
+            accepted_boxes.append((minc, minr, maxc, maxr))
 
         orig_pil = Image.fromarray(original_image)
         self._create_visualization(orig_pil, accepted_boxes, "extract_with_contours.jpg")
@@ -311,23 +313,32 @@ class BorderPanelExtractor:
 
         return all_paths, output_path
 
-    def draw_black(self, original_image, accepted_boxes) -> None:
+    def draw_black(self, original_image, accepted_boxes) -> str:
         orig_pil = Image.fromarray(original_image.copy())
-        draw = ImageDraw.Draw(orig_pil)
+        width, height = orig_pil.size
 
+        # Create a global stripe pattern (black and white horizontal stripes)
+        stripe_img = Image.new("RGB", (width, height), (255, 255, 255))
+        draw = ImageDraw.Draw(stripe_img)
         stripe_height = 10
 
+        for y in range(0, height, stripe_height):
+            if (y // stripe_height) % 2 == 0:
+                draw.rectangle([0, y, width, min(y + stripe_height, height)], fill=(0, 0, 0))
+
+        # Create a mask where accepted boxes will be applied
+        mask = Image.new("L", (width, height), 0)
+        mask_draw = ImageDraw.Draw(mask)
         for x1, y1, x2, y2 in accepted_boxes:
-            for y in range(y1, y2, stripe_height):
-                color = (0, 0, 0) if ((y - y1) // stripe_height) % 2 == 0 else (255, 255, 255)
-                y_end = min(y + stripe_height, y2)
-                draw.rectangle([x1, y, x2, y_end], fill=color)
-        
-        # Save the result
+            mask_draw.rectangle([x1, y1, x2, y2], fill=255)
+
+        # Paste the striped image only where mask is white (inside accepted boxes)
+        orig_pil.paste(stripe_img, (0, 0), mask)
+
         output_path = os.path.join(self.config.output_folder, "00_original_with_panels_removed.jpg")
         orig_pil.save(output_path)
-
         return output_path
+
 
     def get_black_white_ratio(self, image_path: str, threshold: int = 128) -> dict:
         """
@@ -518,83 +529,85 @@ class BorderPanelExtractor:
 
     def extend_to_nearby_boxes(self, boxes, image_shape):
         """
-        Extend smaller boxes to the edge of close larger boxes, without merging or reducing the box count.
+        Extends boxes to the edge of any close neighboring box without causing
+        unintended merging by using an atomic update approach.
 
         A box is represented by (x1, y1, x2, y2).
         """
         if not boxes:
             return boxes
-        extended_boxes = [list(box) for box in boxes]
+
         height, width = image_shape[:2]
+        # Ensure you have self.config.min_width_ratio and self.config.min_height_ratio defined
+        # For example:
+        # self.config.min_width_ratio = 0.05
+        # self.config.min_height_ratio = 0.05
+        width_threshold = width * self.config.min_width_ratio
+        height_threshold = height * self.config.min_height_ratio
 
-        width_threshold = min(x2 - x1 for x1, y1, x2, y2 in extended_boxes)
-        height_threshold = min(y2 - y1 for x1, y1, x2, y2 in extended_boxes)
+        final_boxes = []
+        # For each box, calculate its new coordinates based on the original list
+        for i in range(len(boxes)):
+            # Start with the original coordinates for the box we're currently processing
+            x1, y1, x2, y2 = boxes[i]
 
-        # width_threshold = self.config.min_width_ratio * width
-        # height_threshold = self.config.min_height_ratio * height
+            # These will store the closest boundaries we can extend to,
+            # initialized to the image edges.
+            closest_left_boundary = 0
+            closest_right_boundary = width
+            closest_top_boundary = 0
+            closest_bottom_boundary = height
 
-        # print(f"[DEBUG] Image Shape: {image_shape}, Width Threshold: {width_threshold:.2f}, Height Threshold: {height_threshold:.2f}\n")
-
-        for i in range(len(extended_boxes)):
-            for j in range(len(extended_boxes)):
+            # Find the closest neighbor on each of the four sides by checking against ALL other boxes
+            for j in range(len(boxes)):
                 if i == j:
                     continue
 
-                box1 = extended_boxes[i]
-                box2 = extended_boxes[j]
+                x1_j, y1_j, x2_j, y2_j = boxes[j]
 
-                area1 = (box1[2] - box1[0]) * (box1[3] - box1[1])
-                area2 = (box2[2] - box2[0]) * (box2[3] - box2[1])
+                # Check for neighbors to the RIGHT of box `i`
+                is_vert_overlap = (y1 < y2_j and y2 > y1_j) # Do they overlap vertically?
+                is_right_neighbor = (x1_j >= x2)             # Is box `j` to the right of `i`?
+                if is_vert_overlap and is_right_neighbor:
+                    closest_right_boundary = min(closest_right_boundary, x1_j)
 
-                if area1 >= area2:
-                    continue
+                # Check for neighbors to the LEFT of box `i`
+                is_left_neighbor = (x2_j <= x1)              # Is box `j` to the left of `i`?
+                if is_vert_overlap and is_left_neighbor:
+                    closest_left_boundary = max(closest_left_boundary, x2_j)
 
-                # print(f"[DEBUG] Comparing smaller Box {i} {box1} with larger Box {j} {box2}")
+                # Check for neighbors BELOW box `i`
+                is_horiz_overlap = (x1 < x2_j and x2 > x1_j) # Do they overlap horizontally?
+                is_bottom_neighbor = (y1_j >= y2)            # Is box `j` below `i`?
+                if is_horiz_overlap and is_bottom_neighbor:
+                    closest_bottom_boundary = min(closest_bottom_boundary, y1_j)
+                
+                # Check for neighbors ABOVE box `i`
+                is_top_neighbor = (y2_j <= y1)               # Is box `j` above `i`?
+                if is_horiz_overlap and is_top_neighbor:
+                    closest_top_boundary = max(closest_top_boundary, y2_j)
 
-                x1_1, y1_1, x2_1, y2_1 = box1
-                x1_2, y1_2, x2_2, y2_2 = box2
+            # --- Apply the calculated extensions ---
+            
+            # Extend right if the closest gap on the right is within the threshold
+            if 0 < (closest_right_boundary - x2) <= width_threshold:
+                x2 = closest_right_boundary
 
-                # Horizontal Extension Check
-                is_vertically_aligned = (y1_1 < y2_2 and y2_1 > y1_2)
-                if is_vertically_aligned:
-                    gap_right = x1_2 - x2_1
-                    if 0 < gap_right <= width_threshold:
-                        # print(f"  [INFO] Extending right of Box {i}. Gap ({gap_right:.2f}) <= Threshold ({width_threshold:.2f})")
-                        extended_boxes[i][2] = x1_2
-                    # elif gap_right > width_threshold:
-                        # print(f"  [DEBUG] Did not extend right: Gap ({gap_right:.2f}) > Threshold ({width_threshold:.2f})")
+            # Extend left
+            if 0 < (x1 - closest_left_boundary) <= width_threshold:
+                x1 = closest_left_boundary
 
-                    gap_left = x1_1 - x2_2
-                    if 0 < gap_left <= width_threshold:
-                        # print(f"  [INFO] Extending left of Box {i}. Gap ({gap_left:.2f}) <= Threshold ({width_threshold:.2f})")
-                        extended_boxes[i][0] = x2_2
-                    # elif gap_left > width_threshold:
-                        #  print(f"  [DEBUG] Did not extend left: Gap ({gap_left:.2f}) > Threshold ({width_threshold:.2f})")
-                # else:
-                    # print(f"  [DEBUG] Not vertically aligned for horizontal extension.")
-
-
-                # Vertical Extension Check
-                is_horizontally_aligned = (x1_1 < x2_2 and x2_1 > x1_2)
-                if is_horizontally_aligned:
-                    gap_bottom = y1_2 - y2_1
-                    if 0 < gap_bottom <= height_threshold:
-                        # print(f"  [INFO] Extending bottom of Box {i}. Gap ({gap_bottom:.2f}) <= Threshold ({height_threshold:.2f})")
-                        extended_boxes[i][3] = y1_2
-                    # elif gap_bottom > height_threshold:
-                        # print(f"  [DEBUG] Did not extend bottom: Gap ({gap_bottom:.2f}) > Threshold ({height_threshold:.2f})")
-
-                    gap_top = y1_1 - y2_2
-                    if 0 < gap_top <= height_threshold:
-                        # print(f"  [INFO] Extending top of Box {i}. Gap ({gap_top:.2f}) <= Threshold ({height_threshold:.2f})")
-                        extended_boxes[i][1] = y2_2
-                    # elif gap_top > height_threshold:
-                        # print(f"  [DEBUG] Did not extend top: Gap ({gap_top:.2f}) > Threshold ({height_threshold:.2f})")
-                # else:
-                    # print(f"  [DEBUG] Not horizontally aligned for vertical extension.")
-            # print("-" * 20)
-
-        return [tuple(box) for box in extended_boxes]
+            # Extend down
+            if 0 < (closest_bottom_boundary - y2) <= height_threshold:
+                y2 = closest_bottom_boundary
+                
+            # Extend up
+            if 0 < (y1 - closest_top_boundary) <= height_threshold:
+                y1 = closest_top_boundary
+                
+            final_boxes.append(tuple(map(int, (x1, y1, x2, y2))))
+            
+        return final_boxes
 
     def threshold_based_filter(self, boxes, image_shape):
         img_h, img_w = image_shape[:2]
@@ -615,20 +628,32 @@ class BorderPanelExtractor:
     def _apply_additional_processing(self, segmentation_mask_path: str) -> np.ndarray:
         """Apply additional image processing steps when needed."""
         image_processor = ImageProcessor()
+
+        processed_path = image_processor.remove_diagonal_lines_and_set_white(segmentation_mask_path, 
+            file_name="04_remove_diagonal_lines_and_set_white.jpg", 
+            output_folder=f"{self.output_folder}")
+
+        processed_path = image_processor.remove_dangling_lines(processed_path, 
+            file_name="05_remove_dangling_lines.jpg", 
+            output_folder=f"{self.output_folder}")
+
+        processed_path = image_processor.remove_diagonal_only_cells(processed_path, 
+            file_name="06_remove_diagonal_only_cells.jpg", 
+            output_folder=f"{self.output_folder}")
         
         # Step 5: Thicken black lines
         processed_path = image_processor.thick_black(
-            segmentation_mask_path, 
-            file_name="04_thick.jpg", 
+            processed_path, 
+            file_name="07_thick.jpg", 
             output_folder=f"{self.output_folder}"
         )
         
         # Step 6: Connect gaps
-        processed_path = image_processor.connect_horizontal_vertical_gaps(
-            processed_path, 
-            file_name="05_continuity.jpg", 
-            output_folder=f"{self.output_folder}"
-        )
+        # processed_path = image_processor.connect_horizontal_vertical_gaps(
+        #     processed_path, 
+        #     file_name="05_continuity.jpg", 
+        #     output_folder=f"{self.output_folder}"
+        # )
         
         # Check if more processing is needed
         pixel_ratios = self.get_black_white_ratio(processed_path)
@@ -636,19 +661,19 @@ class BorderPanelExtractor:
             # Additional processing steps
             processed_path = image_processor.thin_image_borders(
                 processed_path, 
-                file_name="06_thin.jpg", 
+                file_name="08_thin.jpg", 
                 output_folder=f"{self.output_folder}"
             )
             
             processed_path = image_processor.remove_dangling_lines(
                 processed_path, 
-                file_name="07_remove_dangling_lines.jpg", 
+                file_name="09_remove_dangling_lines.jpg", 
                 output_folder=f"{self.output_folder}"
             )
             
             processed_path = image_processor.thick_black(
                 processed_path, 
-                file_name="08_thick.jpg", 
+                file_name="010_thick.jpg", 
                 output_folder=f"{self.output_folder}"
             )
         
