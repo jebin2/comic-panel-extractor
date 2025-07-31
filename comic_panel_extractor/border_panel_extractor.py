@@ -305,7 +305,7 @@ class BorderPanelExtractor:
 
         accepted_boxes = self.remove_swallow_boxes(accepted_boxes)
 
-        all_paths = self._save_panel(original_image, accepted_boxes)
+        all_paths = self._save_panel(accepted_boxes)
 
         output_path = self.draw_black(original_image, accepted_boxes)
 
@@ -389,7 +389,7 @@ class BorderPanelExtractor:
 
         return count
 
-    def main(self) -> str:
+    def main(self, processed_image_path) -> str:
         """
         Main execution function for panel extraction and removal.
 
@@ -397,8 +397,8 @@ class BorderPanelExtractor:
             Path to the processed image with panels removed
         """
         # Load images
-        image = imageio.imread(self.config.input_path)
-        original_image = imageio.imread(self.config.input_path)
+        image = imageio.imread(processed_image_path)
+        original_image = imageio.imread(processed_image_path)
         
         # Create initial segmentation mask
         segmentation_mask, segmentation_mask_path = self.create_segmentation_mask(image)
@@ -479,8 +479,9 @@ class BorderPanelExtractor:
         )
         zoomed.save(os.path.join(debug_dir, f"region_{idx}_highlight_black_zoomed.jpg"))
 
-    def _save_panel(self, original_image, accepted_boxes) -> str:
+    def _save_panel(self, accepted_boxes) -> str:
         """Save extracted panel with coordinates in filename."""
+        original_image = imageio.imread(self.config.input_path)
         orig_pil = Image.fromarray(original_image.copy())
         panel_idx = 0
         all_paths = []

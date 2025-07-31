@@ -28,7 +28,9 @@ class ComicPanelExtractor:
         """Complete pipeline to extract panels from a comic image."""
         print(f"Starting panel extraction for: {self.config.input_path}")
 
-        processed_image_path = BorderPanelExtractor(self.config).main()
+        processed_image_path = self.config.input_path
+
+        processed_image_path = BorderPanelExtractor(self.config).main(processed_image_path)
 
         self.config.black_overlay_input_path = processed_image_path
 
