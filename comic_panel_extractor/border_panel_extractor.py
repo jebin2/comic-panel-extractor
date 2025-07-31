@@ -106,7 +106,7 @@ class BorderPanelExtractor:
             area = w * h
 
             # Check size thresholds
-            if self._meets_size_requirements(area, w, h, image_area, img_w, img_h):
+            if not self._meets_size_requirements(area, w, h, image_area, img_w, img_h):
                 continue
 
             # Check if region is mostly white
@@ -383,7 +383,7 @@ class BorderPanelExtractor:
             w, h = maxc - minc, maxr - minr
             area = w * h
 
-            if self._meets_size_requirements(area, w, h, image_area, img_w, img_h):
+            if not self._meets_size_requirements(area, w, h, image_area, img_w, img_h):
                 continue
             count += 1
 
@@ -446,9 +446,8 @@ class BorderPanelExtractor:
 
     def _meets_size_requirements(self, area: int, width: int, height: int, image_area: int, img_width: int, img_height: int) -> bool:
         """Check if region meets minimum size requirements."""
-        return (area < self.config.min_area_ratio * image_area or
-                width < self.config.min_width_ratio * img_width or
-                height < self.config.min_height_ratio * img_height)
+        return (width >= self.config.min_width_ratio * img_width and
+                height >= self.config.min_height_ratio * img_height)
 
     def _is_mostly_white_region(self, region, idx: int) -> bool:
         """Check if region is mostly white (allowing small percentage of black)."""
@@ -606,7 +605,7 @@ class BorderPanelExtractor:
             w, h = x2 - x1, y2 - y1
             area = w * h
 
-            if self._meets_size_requirements(area, w, h, image_area, img_w, img_h):
+            if not self._meets_size_requirements(area, w, h, image_area, img_w, img_h):
                 continue
 
             filtered_box.append((x1, y1, x2, y2))
