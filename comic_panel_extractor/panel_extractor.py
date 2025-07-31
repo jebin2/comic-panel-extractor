@@ -250,6 +250,7 @@ class PanelExtractor:
 
     def _save_panels(self, panels: List[Tuple[int, int, int, int]], original: np.ndarray, width: int, height: int) -> Tuple[List[np.ndarray], List[PanelData], List[str]]:
         """Save panel images and return panel data."""
+        original_image = cv2.imread(self.config.input_path)
         visual_output = original.copy()
         panel_images = []
         panel_data = []
@@ -307,7 +308,7 @@ class PanelExtractor:
                 continue
 
             # Save panel
-            panel_img = visual_output[y1:y2, x1:x2]
+            panel_img = original_image[y1:y2, x1:x2]
             panel_images.append(panel_img)
             panel_info = PanelData.from_coordinates(x1, y1, x2, y2)
             panel_data.append(panel_info)
@@ -324,7 +325,7 @@ class PanelExtractor:
         # If no valid panels and full-page backup exists
         if not panel_images and maybe_full_page_panel and panel_idx == 0:
             idx, (x1, y1, x2, y2) = maybe_full_page_panel
-            panel_img = visual_output[y1:y2, x1:x2]
+            panel_img = original_image[y1:y2, x1:x2]
             panel_images.append(panel_img)
             panel_info = PanelData.from_coordinates(x1, y1, x2, y2)
             panel_data.append(panel_info)
