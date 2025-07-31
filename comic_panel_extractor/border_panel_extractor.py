@@ -12,7 +12,7 @@ import cv2
 
 from .config import Config
 from .image_processor import ImageProcessor
-from .utils import remove_duplicate_boxes
+from .utils import remove_duplicate_boxes, count_panels_inside
 
 class BorderPanelExtractor:
     """
@@ -241,6 +241,25 @@ class BorderPanelExtractor:
 
         return adjusted_boxes
 
+    def remove_swallow_boxes(self, boxes):
+        filtered_boxes = []
+
+        for i, (x1, y1, x2, y2) in enumerate(boxes):
+            current_box = (x1, y1, x2, y2)
+            # Count how many other boxes are fully inside this one
+            inside_count = count_panels_inside(current_box, [b for j, b in enumerate(boxes) if j != i])
+
+            # Skip this box if it fully contains at least one other box (i.e., it's swallowing)
+            if inside_count >= 1:
+                continue
+
+            # Keep boxes that don't swallow others
+            filtered_boxes.append(current_box)
+
+        print(f"✅ Found {abs(len(filtered_boxes) - len(boxes))} swallowed boxes")
+        return filtered_boxes
+
+
     def create_image_with_panels_removed(
         self,
         original_image: np.ndarray,
@@ -283,6 +302,8 @@ class BorderPanelExtractor:
         accepted_boxes = self.extend_to_nearby_boxes(accepted_boxes, original_image.shape)
 
         accepted_boxes = remove_duplicate_boxes(accepted_boxes)
+
+        accepted_boxes = self.remove_swallow_boxes(accepted_boxes)
 
         all_paths = self._save_panel(original_image, accepted_boxes)
 

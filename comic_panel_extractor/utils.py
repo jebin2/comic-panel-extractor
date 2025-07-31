@@ -59,3 +59,11 @@ def remove_duplicate_boxes(boxes, compare_single=None, iou_threshold=0.7):
 
     print(f"✅ Found {abs(len(unique_boxes) - len(boxes))} duplicates")
     return unique_boxes
+
+def count_panels_inside(target_box, other_boxes):
+    x1a, y1a, x2a, y2a = target_box
+    count = 0
+    for x1b, y1b, x2b, y2b in other_boxes:
+        if x1a <= x1b and y1a <= y1b and x2a >= x2b and y2a >= y2b:
+            count += 1
+    return count

@@ -6,7 +6,7 @@ import cv2
 from dataclasses import dataclass
 import os
 import re
-from .utils import remove_duplicate_boxes
+from .utils import remove_duplicate_boxes, count_panels_inside
 
 @dataclass
 class PanelData:
@@ -248,15 +248,6 @@ class PanelExtractor:
                 coords.append(tuple(map(int, match.groups())))
         return coords
 
-    def count_panels_inside(self, target_box, other_boxes):
-        x1a, y1a, x2a, y2a = target_box
-        count = 0
-        for x1b, y1b, x2b, y2b in other_boxes:
-            if x1a <= x1b and y1a <= y1b and x2a >= x2b and y2a >= y2b:
-                count += 1
-        return count
-
-
     def _save_panels(self, panels: List[Tuple[int, int, int, int]], original: np.ndarray, width: int, height: int) -> Tuple[List[np.ndarray], List[PanelData], List[str]]:
         """Save panel images and return panel data."""
         visual_output = original.copy()
@@ -310,7 +301,7 @@ class PanelExtractor:
                 continue
 
             # 2. Skip if this panel contains ≥1 other panels
-            contained_count = self.count_panels_inside((x1, y1, x2, y2), already_saved_coords)
+            contained_count = count_panels_inside((x1, y1, x2, y2), already_saved_coords)
             if contained_count >= 1:
                 print(f"⚠️ Skipping panel #{idx} — contains {contained_count} other panels inside")
                 continue

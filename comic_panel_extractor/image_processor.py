@@ -9,6 +9,10 @@ from skimage.measure import label
 from skimage import measure
 from tqdm import tqdm
 
+from PIL import Image
+import numpy as np
+from sklearn.cluster import KMeans
+
 class ImageProcessor:
     """Handles image preprocessing operations."""
     
@@ -80,6 +84,41 @@ class ImageProcessor:
 
         # Save result
         return inverted, black_pixels > white_pixels
+
+    def group_colors(self, processed_image_path, num_clusters: int = 5, file_name="group_colors.jpg", output_folder=None) -> Image.Image:
+        """
+        Groups similar colors in an image using KMeans clustering.
+
+        Args:
+            processed_image_path (str): Path to the image to be color-grouped.
+            num_clusters (int): Number of color clusters to form.
+            file_name (str): Name of the output image file.
+            output_folder (str): Optional output directory.
+
+        Returns:
+            str: Path to the saved grouped-color image.
+        """
+        output_folder = output_folder or self.config.output_folder
+        # Load image
+        image = Image.open(processed_image_path).convert("RGB")
+        np_image = np.array(image)
+        h, w = np_image.shape[:2]
+        pixels = np_image.reshape(-1, 3)
+
+        # Run KMeans
+        kmeans = KMeans(n_clusters=num_clusters, random_state=42, n_init='auto')
+        labels = kmeans.fit_predict(pixels)
+        centers = kmeans.cluster_centers_.astype(np.uint8)
+
+        # Replace pixels with their cluster center color
+        clustered_pixels = centers[labels].reshape(h, w, 3)
+
+        # Save using OpenCV (convert RGB to BGR)
+        output_path = self.get_output_path(output_folder, file_name)
+        clustered_bgr = clustered_pixels[:, :, ::-1]
+        cv2.imwrite(output_path, clustered_bgr)
+
+        return str(output_path)
 
     def thin_image_borders(self, processed_image_path: str, file_name="thin_border.jpg", output_folder=None) -> str:
         """
