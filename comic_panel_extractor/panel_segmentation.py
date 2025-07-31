@@ -70,7 +70,6 @@ def extract_fully_white_panels(
 
         # 1. Threshold check
         if (
-            area < min_area_ratio * image_area or
             w < min_width_ratio * img_w or
             h < min_height_ratio * img_h
         ):

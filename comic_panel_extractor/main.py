@@ -28,7 +28,7 @@ class ComicPanelExtractor:
         """Complete pipeline to extract panels from a comic image."""
         print(f"Starting panel extraction for: {self.config.input_path}")
 
-        processed_image_path = self.config.input_path
+        processed_image_path = self.image_processor.group_colors(self.config.input_path)
 
         processed_image_path = BorderPanelExtractor(self.config).main(processed_image_path)
 
@@ -38,21 +38,21 @@ class ComicPanelExtractor:
 
         processed_image_path = self.image_processor.thin_image_borders(processed_image_path)
 
+        processed_image_path = self.image_processor.remove_diagonal_lines_and_set_white(processed_image_path)
+
         processed_image_path = self.image_processor.remove_dangling_lines(processed_image_path)
 
         processed_image_path = self.image_processor.remove_diagonal_only_cells(processed_image_path)
-
-        processed_image_path = self.image_processor.remove_small_continuity_components(processed_image_path)
 
         processed_image_path = self.image_processor.thick_black(processed_image_path)
 
         processed_image_path = self.image_processor.remove_small_regions(processed_image_path)
 
-        processed_image_path = self.image_processor.remove_diagonal_lines(processed_image_path)
-
         processed_image_path = self.image_processor.remove_small_regions(processed_image_path)
 
-        processed_image_path = self.image_processor.connect_horizontal_vertical_gaps(processed_image_path)
+        # processed_image_path = self.image_processor.connect_horizontal_vertical_gaps(processed_image_path)
+
+        processed_image_path = self.image_processor.detect_small_objects_and_set_white(processed_image_path)
 
         processed_image_path = self.image_processor.thin_image_borders(processed_image_path)
 

@@ -752,7 +752,7 @@ class ImageProcessor:
         cv2.imwrite(output_path, output)
         return output_path
 
-    def detect_objects_and_draw_boxess_and_set_white(self, image_path, file_name="all_objects_detected.jpg", output_folder=None):
+    def detect_small_objects_and_set_white(self, image_path, file_name="detect_small_objects_and_set_white.jpg", output_folder=None):
         output_folder = output_folder or self.config.output_folder
 
         # Load image
