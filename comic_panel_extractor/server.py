@@ -100,10 +100,22 @@ async def convert_comic(file: UploadFile = File(...)):
         with open(file_path, "wb") as f:
             f.write(content)
 
+        # 🔍 DEBUG: Log file info
+        print("======== DEBUG: Upload Info ========")
+        print(f"Working Dir: {os.getcwd()}")
+        print(f"Saved file path: {file_path}")
+        print(f"Output folder: {specific_output_folder}")
+        print(f"List of files in output folder: {os.listdir(specific_output_folder)}")
+        print("====================================")
+
         # Extract panels
         config = Config()
         config.input_path = file_path
         config.output_folder = specific_output_folder
+
+        print(f"[DEBUG] Setting config.input_path to: {config.input_path}")
+        print(f"[DEBUG] Setting config.output_folder to: {config.output_folder}")
+
         _, _, all_panel_path = ComicPanelExtractor(config, reset=False).extract_panels_from_comic()
         all_panel_path = [f'/{base_output_folder}{path.split(output_folder)[-1]}' for path in all_panel_path]
 
