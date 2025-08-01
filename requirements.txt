@@ -11,4 +11,4 @@ imagehash
 scikit-learn
 ultralytics
 Pillow
-opencv-python
+opencv-contrib-python
