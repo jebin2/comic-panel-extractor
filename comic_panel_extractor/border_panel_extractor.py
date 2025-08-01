@@ -12,7 +12,7 @@ import cv2
 
 from .config import Config
 from .image_processor import ImageProcessor
-from .utils import remove_duplicate_boxes, count_panels_inside
+from .utils import remove_duplicate_boxes, count_panels_inside, extend_boxes_to_image_border
 
 class BorderPanelExtractor:
     """
@@ -202,47 +202,6 @@ class BorderPanelExtractor:
         print(f"✅ Found {abs(len(unique_boxes) - len(boxes))} duplicates")
         return unique_boxes
 
-    def extend_boxes_to_image_border(self, boxes, image_shape):
-        """
-        Extends any side of a bounding box to the image border if it's close enough.
-        
-        :param boxes: List of (x1, y1, x2, y2) tuples.
-        :param image_shape: (height, width) of the image.
-        :param threshold: Pixel threshold to snap to border.
-        :return: List of adjusted boxes.
-        """
-        if not boxes:
-            return boxes
-        extended_boxes = [list(box) for box in boxes]
-        height, width = image_shape[:2]
-        adjusted_boxes = []
-
-        width_threshold = min(x2 - x1 for x1, y1, x2, y2 in extended_boxes)
-        height_threshold = min(y2 - y1 for x1, y1, x2, y2 in extended_boxes)
-
-        # width_threshold = self.config.min_width_ratio * width
-        # height_threshold = self.config.min_height_ratio * height
-
-        percent_threshold=0.8
-        for x1, y1, x2, y2 in boxes:
-            box_width = x2 - x1
-            box_height = y2 - y1
-
-            # Snap if close to left or top
-            if abs(x1 - 0) <= width_threshold or box_width >= percent_threshold * width:
-                x1 = 0
-            if abs(y1 - 0) <= height_threshold or box_height >= percent_threshold * height:
-                y1 = 0
-
-            # Snap if close to right or bottom
-            if abs(x2 - width) <= width_threshold or box_width >= percent_threshold * width:
-                x2 = width
-            if abs(y2 - height) <= height_threshold or box_height >= percent_threshold * height:
-                y2 = height
-            adjusted_boxes.append((x1, y1, x2, y2))
-
-        return adjusted_boxes
-
     def remove_swallow_boxes(self, boxes):
         filtered_boxes = []
 
@@ -295,7 +254,7 @@ class BorderPanelExtractor:
 
         accepted_boxes = remove_duplicate_boxes(accepted_boxes)
 
-        accepted_boxes = self.extend_boxes_to_image_border(accepted_boxes, original_image.shape)
+        accepted_boxes = extend_boxes_to_image_border(accepted_boxes, original_image.shape, self.config.min_width_ratio, self.config.min_height_ratio)
 
         accepted_boxes = remove_duplicate_boxes(accepted_boxes)
 

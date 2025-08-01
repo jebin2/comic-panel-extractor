@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 from .border_panel_extractor import BorderPanelExtractor
 import shutil
+from . import utils
 
 class ComicPanelExtractor:
     """Main class that orchestrates the comic panel extraction process."""
@@ -27,6 +28,18 @@ class ComicPanelExtractor:
     def extract_panels_from_comic(self) -> Tuple[List[np.ndarray], List[PanelData]]:
         """Complete pipeline to extract panels from a comic image."""
         print(f"Starting panel extraction for: {self.config.input_path}")
+        try:
+            # Get original image dimensions
+            from PIL import Image
+            with Image.open(self.config.input_path) as original_image:
+                original_width, original_height = original_image.size
+            from .llm_panel_extractor import extract_panel_via_llm
+            all_path, detected_boxes, all_processed_boxes = extract_panel_via_llm(self.config.input_path, self.config)
+            if utils.box_covered_ratio(all_processed_boxes, (original_width, original_height)) < 0.95:
+                print("LLM failed.")
+            return None, None, all_path
+        except Exception as e:
+            print(str(e))
 
         processed_image_path = self.image_processor.group_colors(self.config.input_path)
 

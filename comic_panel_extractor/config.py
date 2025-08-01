@@ -1,9 +1,15 @@
 from dataclasses import dataclass
+from pathlib import Path
+
+# Path to this script's directory
+CURRENT_DIR = Path(__file__).parent.resolve()
 
 @dataclass
 class Config:
     """Configuration settings for the comic-to-video pipeline."""
+    org_input_path: str = ""
     input_path: str = ""
+    yolo_model_path: str = (CURRENT_DIR / "best.pt").resolve()
     black_overlay_input_path: str = ""
     output_folder: str = "temp_dir"
     distance_threshold: int = 70

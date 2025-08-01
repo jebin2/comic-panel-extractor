@@ -1,69 +1,414 @@
+from PIL import Image, ImageDraw
+import imageio.v2 as imageio
+import cv2
+import numpy as np
+from sklearn.cluster import KMeans
+
 def remove_duplicate_boxes(boxes, compare_single=None, iou_threshold=0.7):
-    """
-    Removes duplicate or highly overlapping boxes, keeping the larger one.
-    :param boxes: List of (x1, y1, x2, y2) boxes.
-    :param compare_single: Optional single box to compare against the list.
-    :param iou_threshold: IOU threshold to consider as duplicate.
-    :return: 
-        - If compare_single is None: deduplicated list of boxes.
-        - If compare_single is provided: tuple (is_duplicate, updated_box_or_none)
-    """
-    def compute_iou(boxA, boxB):
-        xA = max(boxA[0], boxB[0])
-        yA = max(boxA[1], boxB[1])
-        xB = min(boxA[2], boxB[2])
-        yB = min(boxA[3], boxB[3])
-        interArea = max(0, xB - xA) * max(0, yB - yA)
-        if interArea == 0:
-            return 0.0
-        boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1])
-        boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
-        return interArea / float(boxAArea + boxBArea - interArea)
+	"""
+	Removes duplicate or highly overlapping boxes, keeping the larger one.
+	:param boxes: List of (x1, y1, x2, y2) boxes.
+	:param compare_single: Optional single box to compare against the list.
+	:param iou_threshold: IOU threshold to consider as duplicate.
+	:return: 
+		- If compare_single is None: deduplicated list of boxes.
+		- If compare_single is provided: tuple (is_duplicate, updated_box_or_none)
+	"""
+	def compute_iou(boxA, boxB):
+		xA = max(boxA[0], boxB[0])
+		yA = max(boxA[1], boxB[1])
+		xB = min(boxA[2], boxB[2])
+		yB = min(boxA[3], boxB[3])
+		interArea = max(0, xB - xA) * max(0, yB - yA)
+		if interArea == 0:
+			return 0.0
+		boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1])
+		boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
+		return interArea / float(boxAArea + boxBArea - interArea)
 
-    def compute_area(box):
-        return (box[2] - box[0]) * (box[3] - box[1])
+	def compute_area(box):
+		return (box[2] - box[0]) * (box[3] - box[1])
 
-    # Single comparison mode
-    if compare_single is not None:
-        single_area = compute_area(compare_single)
-        for existing_box in boxes:
-            iou = compute_iou(compare_single, existing_box)
-            if iou > iou_threshold:
-                existing_area = compute_area(existing_box)
-                if single_area > existing_area:
-                    return True, compare_single  # Keep new (larger) box
-                else:
-                    return True, None  # Existing box is better, discard new
-        return False, compare_single  # No overlap found, keep it
+	# Single comparison mode
+	if compare_single is not None:
+		single_area = compute_area(compare_single)
+		for existing_box in boxes:
+			iou = compute_iou(compare_single, existing_box)
+			if iou > iou_threshold:
+				existing_area = compute_area(existing_box)
+				if single_area > existing_area:
+					return True, compare_single  # Keep new (larger) box
+				else:
+					return True, None  # Existing box is better, discard new
+		return False, compare_single  # No overlap found, keep it
 
-    # Bulk deduplication mode
-    unique_boxes = []
-    for box in boxes:
-        box_area = compute_area(box)
-        replaced_existing = False
-        
-        # Check against existing unique boxes
-        for i, ubox in enumerate(unique_boxes):
-            if compute_iou(box, ubox) > iou_threshold:
-                ubox_area = compute_area(ubox)
-                # If current box is larger, replace the existing one
-                if box_area > ubox_area:
-                    unique_boxes[i] = box
-                    replaced_existing = True
-                # If existing box is larger or equal, ignore current box
-                break
-        
-        # If no overlap found, add the box
-        if not replaced_existing and not any(compute_iou(box, ubox) > iou_threshold for ubox in unique_boxes):
-            unique_boxes.append(box)
+	# Bulk deduplication mode
+	unique_boxes = []
+	for box in boxes:
+		box_area = compute_area(box)
+		replaced_existing = False
+		
+		# Check against existing unique boxes
+		for i, ubox in enumerate(unique_boxes):
+			if compute_iou(box, ubox) > iou_threshold:
+				ubox_area = compute_area(ubox)
+				# If current box is larger, replace the existing one
+				if box_area > ubox_area:
+					unique_boxes[i] = box
+					replaced_existing = True
+				# If existing box is larger or equal, ignore current box
+				break
+		
+		# If no overlap found, add the box
+		if not replaced_existing and not any(compute_iou(box, ubox) > iou_threshold for ubox in unique_boxes):
+			unique_boxes.append(box)
 
-    print(f"✅ Found {abs(len(unique_boxes) - len(boxes))} duplicates")
-    return unique_boxes
+	print(f"✅ Found {abs(len(unique_boxes) - len(boxes))} duplicates")
+	return unique_boxes
 
-def count_panels_inside(target_box, other_boxes):
-    x1a, y1a, x2a, y2a = target_box
-    count = 0
-    for x1b, y1b, x2b, y2b in other_boxes:
-        if x1a <= x1b and y1a <= y1b and x2a >= x2b and y2a >= y2b:
-            count += 1
-    return count
+def count_panels_inside(target_box, other_boxes, height=None, width=None):
+	x1a, y1a, x2a, y2a = target_box
+	target_area = (x2a - x1a) * (y2a - y1a)
+	count = 0
+	total_covered_area = 0
+	for x1b, y1b, x2b, y2b in other_boxes:
+		if x1a <= x1b and y1a <= y1b and x2a >= x2b and y2a >= y2b:
+			count += 1
+
+	# Only apply area threshold check if height and width are provided
+	if height is not None and width is not None:
+		if total_covered_area / target_area < 0.8:
+			return 0
+	return count
+
+def extend_boxes_to_image_border(boxes, image_shape, min_width_ratio, min_height_ratio):
+	"""
+	Extends any side of a bounding box to the image border if it's close enough.
+	
+	:param boxes: List of (x1, y1, x2, y2) tuples.
+	:param image_shape: (height, width) of the image.
+	:param threshold: Pixel threshold to snap to border.
+	:return: List of adjusted boxes.
+	"""
+	if not boxes:
+		return boxes
+	extended_boxes = [list(box) for box in boxes]
+	width, height = image_shape
+	adjusted_boxes = []
+
+	width_threshold = width * min_width_ratio
+	height_threshold = height * min_height_ratio
+
+	# width_threshold = self.config.min_width_ratio * width
+	# height_threshold = self.config.min_height_ratio * height
+
+	percent_threshold=0.8
+	for x1, y1, x2, y2 in boxes:
+		box_width = x2 - x1
+		box_height = y2 - y1
+
+		# Snap if close to left or top
+		if abs(x1 - 0) <= width_threshold or box_width >= percent_threshold * width:
+			x1 = 0
+		if abs(y1 - 0) <= height_threshold or box_height >= percent_threshold * height:
+			y1 = 0
+
+		# Snap if close to right or bottom
+		if abs(x2 - width) <= width_threshold or box_width >= percent_threshold * width:
+			x2 = width
+		if abs(y2 - height) <= height_threshold or box_height >= percent_threshold * height:
+			y2 = height
+		adjusted_boxes.append((x1, y1, x2, y2))
+
+	return adjusted_boxes
+
+def draw_black(image_path, accepted_boxes, output_path, stripe = True) -> str:
+	orig_pil = Image.fromarray(imageio.imread(image_path))
+	width, height = orig_pil.size
+
+	# Create a global stripe pattern (black and white horizontal stripes)
+	stripe_img = Image.new("RGB", (width, height), (255, 255, 255))
+	draw = ImageDraw.Draw(stripe_img)
+	stripe_height = 10
+
+	if stripe:
+		for y in range(0, height, stripe_height):
+			if (y // stripe_height) % 2 == 0:
+				draw.rectangle([0, y, width, min(y + stripe_height, height)], fill=(0, 0, 0))
+
+	# Create a mask where accepted boxes will be applied
+	mask = Image.new("L", (width, height), 0)
+	mask_draw = ImageDraw.Draw(mask)
+	for x1, y1, x2, y2 in accepted_boxes:
+		mask_draw.rectangle([x1, y1, x2, y2], fill=255)
+
+	# Paste the striped image only where mask is white (inside accepted boxes)
+	orig_pil.paste(stripe_img, (0, 0), mask)
+
+	orig_pil.save(output_path)
+	return output_path
+
+def extend_to_nearby_boxes(boxes, image_shape, min_width_ratio, min_height_ratio):
+	"""
+	Extends boxes to the edge of any close neighboring box without causing
+	unintended merging by using an atomic update approach.
+
+	A box is represented by (x1, y1, x2, y2).
+	"""
+	if not boxes:
+		return boxes
+
+	width, height = image_shape
+
+	width_threshold = width * min_width_ratio
+	height_threshold = height * min_height_ratio
+
+	final_boxes = []
+	# For each box, calculate its new coordinates based on the original list
+	for i in range(len(boxes)):
+		# Start with the original coordinates for the box we're currently processing
+		x1, y1, x2, y2 = boxes[i]
+
+		# These will store the closest boundaries we can extend to,
+		# initialized to the image edges.
+		closest_left_boundary = 0
+		closest_right_boundary = width
+		closest_top_boundary = 0
+		closest_bottom_boundary = height
+
+		# Find the closest neighbor on each of the four sides by checking against ALL other boxes
+		for j in range(len(boxes)):
+			if i == j:
+				continue
+
+			x1_j, y1_j, x2_j, y2_j = boxes[j]
+
+			# Check for neighbors to the RIGHT of box `i`
+			is_vert_overlap = (y1 < y2_j and y2 > y1_j) # Do they overlap vertically?
+			is_right_neighbor = (x1_j >= x2)			 # Is box `j` to the right of `i`?
+			if is_vert_overlap and is_right_neighbor:
+				closest_right_boundary = min(closest_right_boundary, x1_j)
+
+			# Check for neighbors to the LEFT of box `i`
+			is_left_neighbor = (x2_j <= x1)			  # Is box `j` to the left of `i`?
+			if is_vert_overlap and is_left_neighbor:
+				closest_left_boundary = max(closest_left_boundary, x2_j)
+
+			# Check for neighbors BELOW box `i`
+			is_horiz_overlap = (x1 < x2_j and x2 > x1_j) # Do they overlap horizontally?
+			is_bottom_neighbor = (y1_j >= y2)			# Is box `j` below `i`?
+			if is_horiz_overlap and is_bottom_neighbor:
+				closest_bottom_boundary = min(closest_bottom_boundary, y1_j)
+			
+			# Check for neighbors ABOVE box `i`
+			is_top_neighbor = (y2_j <= y1)			   # Is box `j` above `i`?
+			if is_horiz_overlap and is_top_neighbor:
+				closest_top_boundary = max(closest_top_boundary, y2_j)
+
+		# --- Apply the calculated extensions ---
+		
+		# Extend right if the closest gap on the right is within the threshold
+		if 0 < (closest_right_boundary - x2) <= width_threshold:
+			x2 = closest_right_boundary
+
+		# Extend left
+		if 0 < (x1 - closest_left_boundary) <= width_threshold:
+			x1 = closest_left_boundary
+
+		# Extend down
+		if 0 < (closest_bottom_boundary - y2) <= height_threshold:
+			y2 = closest_bottom_boundary
+			
+		# Extend up
+		if 0 < (y1 - closest_top_boundary) <= height_threshold:
+			y1 = closest_top_boundary
+			
+		final_boxes.append(tuple(map(int, (x1, y1, x2, y2))))
+		
+	return final_boxes
+
+def convert_to_grayscale_pil(input_path, output_path):
+	with Image.open(input_path) as img:
+		gray_img = img.convert("L")  # "L" mode = grayscale
+		gray_img.save(output_path)
+
+	return output_path
+
+def convert_to_clahe(input_path, output_path):
+	# Read image from disk
+	image = cv2.imread(input_path)
+
+	if image is None:
+		raise FileNotFoundError(f"Could not read image from path: {input_path}")
+
+	# Convert to grayscale
+	gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+	# Apply CLAHE
+	clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+	output = clahe.apply(gray)
+
+	# Save the processed image
+	cv2.imwrite(output_path, output)
+
+	return output_path
+
+def convert_to_lab_l(input_path, output_path):
+	# Read image from disk
+	image = cv2.imread(input_path)
+
+	if image is None:
+		raise FileNotFoundError(f"Could not read image from path: {input_path}")
+
+	output = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)[:, :, 0]
+
+	# Save the processed image
+	cv2.imwrite(output_path, output)
+
+	return output_path
+
+def convert_to_group_colors(input_path, output_path, num_clusters: int = 5):
+	# Load image
+	image = Image.open(input_path).convert("RGB")
+	np_image = np.array(image)
+	h, w = np_image.shape[:2]
+	pixels = np_image.reshape(-1, 3)
+
+	# Run KMeans
+	kmeans = KMeans(n_clusters=num_clusters, random_state=42, n_init='auto')
+	labels = kmeans.fit_predict(pixels)
+	centers = kmeans.cluster_centers_.astype(np.uint8)
+
+	# Replace pixels with their cluster center color
+	clustered_pixels = centers[labels].reshape(h, w, 3)
+
+	# Save using OpenCV (convert RGB to BGR)
+	output = clustered_pixels[:, :, ::-1]
+
+	# Save the processed image
+	cv2.imwrite(output_path, output)
+
+	return output_path
+
+def get_black_white_ratio(image_path: str, threshold: int = 128) -> dict:
+	"""
+	Calculate the ratio of black and white pixels in a binary image.
+	
+	Args:
+		image_path: Path to the image file
+		threshold: Threshold value for binarization
+	
+	Returns:
+		Dictionary with pixel ratios and counts
+	"""
+	# Load and process image
+	img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+	if img is None:
+		raise FileNotFoundError(f"Image not found: {image_path}")
+
+	# Convert to binary
+	_, binary = cv2.threshold(img, threshold, 255, cv2.THRESH_BINARY)
+
+	# Calculate ratios
+	total_pixels = binary.size
+	white_count = np.count_nonzero(binary == 255)
+	black_count = total_pixels - white_count
+
+	return {
+		"black_ratio": black_count / total_pixels,
+		"white_ratio": white_count / total_pixels,
+		"black_count": black_count,
+		"white_count": white_count,
+		"total_pixels": total_pixels
+	}
+
+def box_covered_ratio(boxes, image_shape) -> float:
+	"""
+	Calculate the ratio of area covered by boxes to the image area,
+	accounting for overlapping boxes by using a mask.
+
+	Args:
+		boxes (List[Tuple[int, int, int, int]]): List of (x1, y1, x2, y2) boxes.
+		image_shape (Tuple[int, int]): (width, height) of the image.
+
+	Returns:
+		float: Ratio between 0 and 1.
+	"""
+	width, height = image_shape
+	image_area = width * height
+
+	if image_area == 0 or not boxes:
+		return 0.0
+
+	# Create a white mask
+	mask = np.ones((height, width), dtype=np.uint8) * 255
+
+	# Draw black rectangles (panels)
+	for x1, y1, x2, y2 in boxes:
+		cv2.rectangle(mask, (x1, y1), (x2, y2), color=0, thickness=-1)
+
+	# Count black pixels
+	black_pixels = np.sum(mask == 0)
+
+	return black_pixels / image_area
+
+def find_similar_remaining_regions(boxes, image_shape, debug_image_path, w_t=0.25, h_t=0.25):
+	"""
+	Find remaining regions not covered by original boxes that match any original box's
+	width and height within a given threshold.
+
+	Args:
+		boxes (List[Tuple[int, int, int, int]]): Original (x1, y1, x2, y2) boxes.
+		image_shape (Tuple[int, int]): (width, height) of the image.
+		debug_image_path (str): Path to save debug image.
+		w_t (float): Width threshold (e.g., 0.1 = ±10%)
+		h_t (float): Height threshold (e.g., 0.1 = ±10%)
+
+	Returns:
+		Tuple[List[Tuple[int, int, int, int]], np.ndarray]: 
+			- List of new similar boxes
+			- Debug image with overlays
+	"""
+	width, height = image_shape
+	mask = np.ones((height, width), dtype=np.uint8) * 255
+
+	for x1, y1, x2, y2 in boxes:
+		mask[y1:y2, x1:x2] = 0
+
+	contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+	if not boxes:
+		return []
+
+	similar_boxes = []
+	debug_img = np.full((height, width, 3), 255, dtype=np.uint8)
+
+	# Draw original boxes in green
+	for x1, y1, x2, y2 in boxes:
+		cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 10)
+
+	for cnt in contours:
+		x, y, w, h = cv2.boundingRect(cnt)
+		box = (x, y, x + w, y + h)
+
+		matched = False
+		for x1, y1, x2, y2 in boxes:
+			bw = x2 - x1
+			bh = y2 - y1
+
+			width_match = abs(w - bw) / bw <= w_t
+			height_match = abs(h - bh) / bh <= h_t
+
+			if width_match and height_match:
+				matched = True
+				break
+
+		if matched:
+			similar_boxes.append(box)
+			cv2.rectangle(debug_img, (x, y), (x + w, y + h), (255, 0, 0), 10)  # Blue: Accepted
+		else:
+			cv2.rectangle(debug_img, (x, y), (x + w, y + h), (0, 0, 255), 10)  # Red: Rejected
+
+	cv2.imwrite(debug_image_path, debug_img)
+	return similar_boxes
+

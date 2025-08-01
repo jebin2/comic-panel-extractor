@@ -6,7 +6,7 @@ import cv2
 from dataclasses import dataclass
 import os
 import re
-from .utils import remove_duplicate_boxes, count_panels_inside
+from .utils import remove_duplicate_boxes, count_panels_inside, extend_boxes_to_image_border
 
 @dataclass
 class PanelData:
@@ -200,12 +200,10 @@ class PanelExtractor:
     def _filter_panels_by_size(self, panels: List[Tuple[int, int, int, int]], width: int, height: int) -> List[Tuple[int, int, int, int]]:
         """Filter panels by size constraints."""
         new_panel = []
-        image_area = width * height
 
         for x1, y1, x2, y2 in panels:
             w = x2 - x1  # Corrected
             h = y2 - y1  # Corrected
-            area = w * h
 
             if (
                 w >= self.config.min_width_ratio * width and
@@ -246,6 +244,97 @@ class PanelExtractor:
             if match:
                 coords.append(tuple(map(int, match.groups())))
         return coords
+
+    def limit_coord(self, new_coord, existing_coords):
+        """
+        Trim a new panel box from any side to completely avoid overlapping with existing panels.
+        
+        Args:
+            new_coord: Tuple (x1, y1, x2, y2) representing the new panel box
+            existing_coords: List of tuples [(x1, y1, x2, y2), ...] representing existing panels
+        
+        Returns:
+            Tuple (x1, y1, x2, y2) representing the trimmed panel box with no overlaps
+        """
+        if not existing_coords:
+            return new_coord
+        
+        x1, y1, x2, y2 = new_coord
+        
+        # Ensure valid input coordinates
+        if x2 <= x1 or y2 <= y1:
+            return new_coord
+        
+        # Keep trimming until no overlaps exist
+        current_box = (x1, y1, x2, y2)
+        
+        for existing_box in existing_coords:
+            ex1, ey1, ex2, ey2 = existing_box
+            cx1, cy1, cx2, cy2 = current_box
+            
+            # Check if current box overlaps with this existing box
+            if self.boxes_overlap(current_box, existing_box):
+                
+                # Calculate possible trim options and their resulting box sizes
+                trim_options = []
+                
+                # Option 1: Trim from left (move x1 right)
+                if cx1 < ex2 and cx2 > ex2:
+                    new_x1 = ex2
+                    if new_x1 < cx2:  # Ensure valid box
+                        area = (cx2 - new_x1) * (cy2 - cy1)
+                        trim_options.append(('left', (new_x1, cy1, cx2, cy2), area))
+                
+                # Option 2: Trim from right (move x2 left)
+                if cx2 > ex1 and cx1 < ex1:
+                    new_x2 = ex1
+                    if new_x2 > cx1:  # Ensure valid box
+                        area = (new_x2 - cx1) * (cy2 - cy1)
+                        trim_options.append(('right', (cx1, cy1, new_x2, cy2), area))
+                
+                # Option 3: Trim from top (move y1 down)
+                if cy1 < ey2 and cy2 > ey2:
+                    new_y1 = ey2
+                    if new_y1 < cy2:  # Ensure valid box
+                        area = (cx2 - cx1) * (cy2 - new_y1)
+                        trim_options.append(('top', (cx1, new_y1, cx2, cy2), area))
+                
+                # Option 4: Trim from bottom (move y2 up)
+                if cy2 > ey1 and cy1 < ey1:
+                    new_y2 = ey1
+                    if new_y2 > cy1:  # Ensure valid box
+                        area = (cx2 - cx1) * (new_y2 - cy1)
+                        trim_options.append(('bottom', (cx1, cy1, cx2, new_y2), area))
+                
+                # Choose the trim option that preserves the largest area
+                if trim_options:
+                    # Sort by area (descending) to keep the largest possible box
+                    trim_options.sort(key=lambda x: x[2], reverse=True)
+                    best_option = trim_options[0]
+                    current_box = best_option[1]
+                else:
+                    # If no valid trim options, return minimal box
+                    return (cx1, cy1, cx1 + 1, cy1 + 1)
+        
+        return current_box
+
+
+    def boxes_overlap(self, box1, box2):
+        """
+        Check if two boxes overlap.
+        
+        Args:
+            box1, box2: Tuples (x1, y1, x2, y2)
+        
+        Returns:
+            Boolean indicating if boxes overlap
+        """
+        x1, y1, x2, y2 = box1
+        ex1, ey1, ex2, ey2 = box2
+        
+        return not (x2 <= ex1 or x1 >= ex2 or y2 <= ey1 or y1 >= ey2)
+
+
 
     def _save_panels(self, panels: List[Tuple[int, int, int, int]], original: np.ndarray, width: int, height: int) -> Tuple[List[np.ndarray], List[PanelData], List[str]]:
         """Save panel images and return panel data."""
@@ -301,9 +390,17 @@ class PanelExtractor:
                 continue
 
             # 2. Skip if this panel contains ≥1 other panels
-            contained_count = count_panels_inside((x1, y1, x2, y2), already_saved_coords)
+            contained_count = count_panels_inside((x1, y1, x2, y2), already_saved_coords, height, width)
             if contained_count >= 1:
                 print(f"⚠️ Skipping panel #{idx} — contains {contained_count} other panels inside")
+                continue
+
+            x1, y1, x2, y2 = extend_boxes_to_image_border([(x1, y1, x2, y2)], [height, width], self.config.min_width_ratio, self.config.min_height_ratio)[0]
+            x1, y1, x2, y2 = self.limit_coord((x1, y1, x2, y2), already_saved_coords)
+
+            if not self._filter_panels_by_size(
+                [(x1, y1, x2, y2)], width, height
+            ):
                 continue
 
             # Save panel
