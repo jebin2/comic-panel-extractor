@@ -17,10 +17,12 @@ from pathlib import Path
 import shutil
 import time
 
+current_path = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+
 base_output_folder = "api_outputs"
 static_folder = "./static"
-output_folder = os.path.abspath(os.path.realpath(os.path.join(os.path.dirname(__file__), f'./{base_output_folder}')))
-static_folder = os.path.abspath(os.path.realpath(os.path.join(os.path.dirname(__file__), static_folder)))
+output_folder = os.path.join(current_path, base_output_folder)
+static_folder = os.path.join(current_path, static_folder)
 
 # Create directories for uploads and outputs
 os.makedirs(output_folder, exist_ok=True)
