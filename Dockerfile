@@ -29,8 +29,8 @@ ENV HOME=/home/user \
 # Copy app code
 COPY --chown=user . .
 
-# Install the package from the current directory
-RUN pip install --no-cache-dir --user .
+# Install the package in editable mode
+RUN pip install --no-cache-dir --user -e .
 
 # Entry point
-CMD ["serve-comic-panel-extractor"]
+CMD ["uvicorn", "comic_panel_extractor.server:main", "--host", "0.0.0.0", "--port", "7860"]
