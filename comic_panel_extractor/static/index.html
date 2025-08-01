@@ -428,7 +428,7 @@
 
                     if (data.success) {
                         showMessage(data.message, 'success');
-                        displayPanels(data.panels);
+                        displayPanels(data.panels, data.folder);
                     } else {
                         showMessage(data.message || 'An error occurred', 'error');
                     }
@@ -479,7 +479,7 @@
             }
         });
 
-        function displayPanels(panels) {
+        function displayPanels(panels, folder) {
             panelsGrid.innerHTML = '';
 
             if (panels.length === 0) {
@@ -494,7 +494,7 @@
                 panelCard.innerHTML = `
                     <img src="${panel}" alt="Panel ${index + 1}" onclick="openModal('${panel}')">
                     <div class="panel-title">Panel ${index + 1}</div>
-                    <a href="${panel}" download="${panel}" class="panel-download">
+                    <a href="${panel}?folder=${folder}" download="${panel}?folder=${folder}" class="panel-download">
                         Download
                     </a>
                 `;

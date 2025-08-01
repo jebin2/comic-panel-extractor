@@ -122,16 +122,17 @@ async def convert_comic(file: UploadFile = File(...)):
         return {
             "success": True,
             "message": f"Extracted {len(all_panel_path)} panels",
-            "panels": all_panel_path
+            "panels": all_panel_path,
+            "folder": specific_output_folder
         }
         
     except Exception as e:
         print(f"Error processing image: {str(e)} {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)} {traceback.format_exc()}")
 
-@app.get("/api_outputs/{folder}/{filename}")
+@app.get("/api_outputs/{filename}")
 async def get_output_file(folder: str, filename: str):
-    file_path = os.path.join(output_folder, folder, filename)
+    file_path = os.path.join(folder, filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(file_path)
