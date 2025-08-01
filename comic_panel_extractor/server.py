@@ -118,7 +118,7 @@ async def convert_comic(file: UploadFile = File(...)):
         print(f"[DEBUG] Setting config.output_folder to: {config.output_folder}")
 
         _, _, all_panel_path = ComicPanelExtractor(config, reset=False).extract_panels_from_comic()
-        all_panel_path = [f'/{"/".join(path.split("/")[-3:])}' for path in all_panel_path]
+        all_panel_path = [f'/{base_output_folder}/{file_id}/{os.path.basename(path)}' for path in all_panel_path]
 
         return {
             "success": True,
