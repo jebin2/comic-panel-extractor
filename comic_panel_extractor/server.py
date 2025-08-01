@@ -16,6 +16,7 @@ import traceback
 from pathlib import Path
 import shutil
 import time
+import mimetypes
 
 current_path = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
@@ -117,25 +118,26 @@ async def convert_comic(file: UploadFile = File(...)):
         print(f"[DEBUG] Setting config.output_folder to: {config.output_folder}")
 
         _, _, all_panel_path = ComicPanelExtractor(config, reset=False).extract_panels_from_comic()
-        all_panel_path = [f'/{base_output_folder}/{path.split(output_folder)[-1]}' for path in all_panel_path]
+        all_panel_path = [f'/{"/".join(path.split("/")[-3:])}' for path in all_panel_path]
 
         return {
             "success": True,
             "message": f"Extracted {len(all_panel_path)} panels",
-            "panels": all_panel_path,
-            "folder": specific_output_folder
+            "panels": all_panel_path
         }
         
     except Exception as e:
         print(f"Error processing image: {str(e)} {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)} {traceback.format_exc()}")
 
-@app.get("/api_outputs/{filename}")
+@app.get("/api_outputs/{folder}/{filename}")
 async def get_output_file(folder: str, filename: str):
-    file_path = os.path.join(folder, filename)
+    file_path = f'{output_folder}/{folder}/{filename}'
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(file_path)
+
+    mime_type, _ = mimetypes.guess_type(file_path)
+    return FileResponse(file_path, media_type=mime_type, filename=filename)
 
 def main():
     import uvicorn
