@@ -8,7 +8,7 @@ python-multipart
 jinja2
 scikit-image
 imagehash
-sklearn
+scikit-learn
 ultralytics
 Pillow
 opencv-python
