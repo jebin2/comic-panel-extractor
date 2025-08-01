@@ -17,6 +17,7 @@ class ComicPanelExtractor:
     
     def __init__(self, config: Config, reset: bool = True):
         self.config = config
+        self.reset = reset
         if reset:
             if Path(self.config.output_folder).exists():
                 shutil.rmtree(self.config.output_folder)
@@ -34,7 +35,7 @@ class ComicPanelExtractor:
             with Image.open(self.config.input_path) as original_image:
                 original_width, original_height = original_image.size
             from .llm_panel_extractor import extract_panel_via_llm
-            all_path, detected_boxes, all_processed_boxes = extract_panel_via_llm(self.config.input_path, self.config)
+            all_path, detected_boxes, all_processed_boxes = extract_panel_via_llm(self.config.input_path, self.config, self.reset)
             if utils.box_covered_ratio(all_processed_boxes, (original_width, original_height)) < 0.95:
                 print("LLM failed.")
             return None, None, all_path

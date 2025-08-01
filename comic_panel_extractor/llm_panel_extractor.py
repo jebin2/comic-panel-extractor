@@ -7,6 +7,7 @@ from . import utils
 import os
 import shutil
 import requests
+from pathlib import Path
 
 class LLMPanelExtractor:
 	"""Handles image preprocessing operations."""
@@ -149,14 +150,17 @@ class LLMPanelExtractor:
 
 		return current_processed_image_path, existing_boxes
 
-def extract_panel_via_llm(input_image_path, config=None):
+def extract_panel_via_llm(input_image_path, config=None, reset=True):
 	"""Main function to extract panels using various image processing techniques."""
 	# Initialize configuration
 	extractor_config = config or Config()
 	extractor_config.org_input_path = input_image_path
 
 	# Clean output folder
-	shutil.rmtree(extractor_config.output_folder, ignore_errors=True)
+	if reset:
+		if Path(extractor_config.output_folder).exists():
+			shutil.rmtree(extractor_config.output_folder, ignore_errors=True)
+		Path(extractor_config.output_folder).mkdir(exist_ok=True)
 
 	# Initialize extractor
 	panel_extractor = LLMPanelExtractor(extractor_config)
