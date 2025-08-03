@@ -412,3 +412,35 @@ def find_similar_remaining_regions(boxes, image_shape, debug_image_path, w_t=0.2
 	cv2.imwrite(debug_image_path, debug_img)
 	return similar_boxes
 
+def get_remaining_areas(image_size, boxes):
+    """
+    Given the image size and a list of bounding boxes, returns the remaining uncovered areas
+    as rectangles.
+
+    Args:
+        image_size: (width, height) of the image.
+        boxes: List of (x1, y1, x2, y2) rectangles.
+
+    Returns:
+        List of rectangles representing the remaining uncovered areas.
+    """
+    width, height = image_size
+    # Create a binary mask of the image (0 = uncovered, 255 = covered)
+    mask = np.zeros((height, width), dtype=np.uint8)
+
+    # Mark the covered boxes
+    for x1, y1, x2, y2 in boxes:
+        mask[y1:y2, x1:x2] = 255
+
+    # Invert mask to get the remaining area
+    remaining_mask = cv2.bitwise_not(mask)
+
+    # Find contours in the remaining area
+    contours, _ = cv2.findContours(remaining_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    remaining_boxes = []
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        remaining_boxes.append((x, y, x + w, y + h))
+
+    return remaining_boxes
