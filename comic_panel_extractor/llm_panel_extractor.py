@@ -99,25 +99,27 @@ class LLMPanelExtractor:
 			if high_confidence_filter.sum() > 0:
 				first_detection_result.boxes = first_detection_result.boxes[high_confidence_filter]
 				newly_detected_boxes = self.extract_bounding_boxes(first_detection_result.boxes)
-				all_processed_boxes.extend(self.extract_bounding_boxes(first_detection_result.boxes))
+				newly_detected_boxes = utils.is_valid_panel((image_width, image_height), newly_detected_boxes, self.config.min_width_ratio, self.config.min_height_ratio)
+				if newly_detected_boxes:
+					all_processed_boxes.extend(self.extract_bounding_boxes(first_detection_result.boxes))
 
-				# Process and extend boxes
-				all_processed_boxes = self.pre_all_processed_boxes(all_processed_boxes, image_width, image_height)
+					# Process and extend boxes
+					all_processed_boxes = self.pre_all_processed_boxes(all_processed_boxes, image_width, image_height)
 
-				# Crop and save detected panels
-				self.crop_and_save_detected_panels(newly_detected_boxes)
-				
-				# Save prediction visualization
-				visualization_result = first_detection_result.plot()
-				constant.INDEX += 1
-				debug_output_path = f"{self.config.output_folder}/{constant.INDEX:04d}_debug.jpg"
-				Image.fromarray(visualization_result[..., ::-1]).save(debug_output_path)
-				
-				# Create black and white mask
-				constant.INDEX += 1
-				masked_output_path = f"{self.config.output_folder}/{constant.INDEX:04d}_draw_black.jpg"
-				masked_image_path = utils.draw_black(self.config.org_input_path, all_processed_boxes, masked_output_path, stripe=False)
-				return masked_image_path, newly_detected_boxes
+					# Crop and save detected panels
+					self.crop_and_save_detected_panels(newly_detected_boxes)
+					
+					# Save prediction visualization
+					visualization_result = first_detection_result.plot()
+					constant.INDEX += 1
+					debug_output_path = f"{self.config.output_folder}/{constant.INDEX:04d}_debug.jpg"
+					Image.fromarray(visualization_result[..., ::-1]).save(debug_output_path)
+					
+					# Create black and white mask
+					constant.INDEX += 1
+					masked_output_path = f"{self.config.output_folder}/{constant.INDEX:04d}_draw_black.jpg"
+					masked_image_path = utils.draw_black(self.config.org_input_path, all_processed_boxes, masked_output_path, stripe=False)
+					return masked_image_path, newly_detected_boxes
 
 		# Process boxes even if no new detections
 		all_processed_boxes = self.pre_all_processed_boxes(all_processed_boxes, image_width, image_height)
@@ -138,15 +140,16 @@ class LLMPanelExtractor:
 		similar_remaining_regions_path = f"{self.config.output_folder}/{constant.INDEX:04d}_remaining_similarity_debug.jpg"
 		similar_remaining_box = utils.find_similar_remaining_regions(all_processed_boxes, (image_width, image_height), similar_remaining_regions_path)
 		if similar_remaining_box:
-			print(similar_remaining_box)
-			self.crop_and_save_detected_panels(similar_remaining_box)
-			existing_boxes.extend(similar_remaining_box)
+			similar_remaining_box = utils.is_valid_panel((image_width, image_height), similar_remaining_box, self.config.min_width_ratio, self.config.min_height_ratio)
+			if similar_remaining_box:
+				self.crop_and_save_detected_panels(similar_remaining_box)
+				existing_boxes.extend(similar_remaining_box)
 
-			all_processed_boxes = self.pre_all_processed_boxes(existing_boxes, image_width, image_height)
+				all_processed_boxes = self.pre_all_processed_boxes(existing_boxes, image_width, image_height)
 
-			constant.INDEX += 1
-			current_processed_image_path = f"{self.config.output_folder}/{constant.INDEX:04d}_remaining_similarity_draw_black.jpg"
-			current_processed_image_path = utils.draw_black(self.config.org_input_path, all_processed_boxes, current_processed_image_path, stripe=False)
+				constant.INDEX += 1
+				current_processed_image_path = f"{self.config.output_folder}/{constant.INDEX:04d}_remaining_similarity_draw_black.jpg"
+				current_processed_image_path = utils.draw_black(self.config.org_input_path, all_processed_boxes, current_processed_image_path, stripe=False)
 
 		return current_processed_image_path, existing_boxes
 
