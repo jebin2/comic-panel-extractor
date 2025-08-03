@@ -413,34 +413,66 @@ def find_similar_remaining_regions(boxes, image_shape, debug_image_path, w_t=0.2
 	return similar_boxes
 
 def get_remaining_areas(image_size, boxes):
-    """
-    Given the image size and a list of bounding boxes, returns the remaining uncovered areas
-    as rectangles.
+	"""
+	Given the image size and a list of bounding boxes, returns the remaining uncovered areas
+	as rectangles.
 
-    Args:
-        image_size: (width, height) of the image.
-        boxes: List of (x1, y1, x2, y2) rectangles.
+	Args:
+		image_size: (width, height) of the image.
+		boxes: List of (x1, y1, x2, y2) rectangles.
 
-    Returns:
-        List of rectangles representing the remaining uncovered areas.
-    """
-    width, height = image_size
-    # Create a binary mask of the image (0 = uncovered, 255 = covered)
-    mask = np.zeros((height, width), dtype=np.uint8)
+	Returns:
+		List of rectangles representing the remaining uncovered areas.
+	"""
+	width, height = image_size
+	# Create a binary mask of the image (0 = uncovered, 255 = covered)
+	mask = np.zeros((height, width), dtype=np.uint8)
 
-    # Mark the covered boxes
-    for x1, y1, x2, y2 in boxes:
-        mask[y1:y2, x1:x2] = 255
+	# Mark the covered boxes
+	for x1, y1, x2, y2 in boxes:
+		mask[y1:y2, x1:x2] = 255
 
-    # Invert mask to get the remaining area
-    remaining_mask = cv2.bitwise_not(mask)
+	# Invert mask to get the remaining area
+	remaining_mask = cv2.bitwise_not(mask)
 
-    # Find contours in the remaining area
-    contours, _ = cv2.findContours(remaining_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+	# Find contours in the remaining area
+	contours, _ = cv2.findContours(remaining_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    remaining_boxes = []
-    for contour in contours:
-        x, y, w, h = cv2.boundingRect(contour)
-        remaining_boxes.append((x, y, x + w, y + h))
+	remaining_boxes = []
+	for contour in contours:
+		x, y, w, h = cv2.boundingRect(contour)
+		remaining_boxes.append((x, y, x + w, y + h))
 
-    return remaining_boxes
+	return remaining_boxes
+
+def is_valid_panel(
+	image_size,
+	boxes,
+	min_width_ratio: float,
+	min_height_ratio: float
+):
+	"""
+	Check if each panel (box) is valid based on minimum width and height ratio of image size.
+
+	Args:
+		image_size: (width, height) of the image.
+		boxes: List of (x1, y1, x2, y2) panel boxes.
+		min_width_ratio: Minimum allowed width as a ratio of image width (e.g. 0.05).
+		min_height_ratio: Minimum allowed height as a ratio of image height (e.g. 0.05).
+
+	Returns:
+		List of booleans indicating if each panel is valid.
+	"""
+	image_width, image_height = image_size
+	min_width = image_width * min_width_ratio
+	min_height = image_height * min_height_ratio
+
+	validity = []
+	for x1, y1, x2, y2 in boxes:
+		box_width = x2 - x1
+		box_height = y2 - y1
+		is_valid = box_width >= min_width and box_height >= min_height
+		if is_valid:
+			validity.append((x1, y1, x2, y2))
+
+	return validity

@@ -235,9 +235,11 @@ def extract_panel_via_llm(input_image_path, config=None, reset=True):
 	all_path = [file for file in os.listdir(extractor_config.output_folder) if "_panel_" in file]
 	remain_boxes = utils.get_remaining_areas((original_width, original_height), all_processed_boxes)
 	if remain_boxes:
-		panel_extractor.crop_and_save_detected_panels(remain_boxes)
-		all_processed_boxes.extend(remain_boxes)
-		accumulated_detected_boxes.extend(remain_boxes)
+		remain_boxes = utils.is_valid_panel((original_width, original_height), remain_boxes, extractor_config.min_width_ratio, extractor_config.min_height_ratio)
+		if remain_boxes:
+			panel_extractor.crop_and_save_detected_panels(remain_boxes)
+			all_processed_boxes.extend(remain_boxes)
+			accumulated_detected_boxes.extend(remain_boxes)
 
 	print(f"Processing complete. Final result saved to: {extractor_config.output_folder}")
 	print(f"Total panels detected: {len(all_path)}")
