@@ -8,13 +8,13 @@ import os
 from pathlib import Path
 import shutil
 
-def create_filtered_dataset(original_dataset_path, output_base_path):
+def create_filtered_dataset(original_dataset_path, output_filtered_dataset_path):
     """
     Create a filtered dataset with only images that have non-empty labels
     """
-    shutil.rmtree(f'{original_dataset_path}/filtered_dataset', ignore_errors=True)
-    original_path = Path(f'{original_dataset_path}/filtered_dataset')
-    output_path = Path(output_base_path)
+    shutil.rmtree(output_filtered_dataset_path, ignore_errors=True)
+    original_path = Path(original_dataset_path)
+    output_path = Path(output_filtered_dataset_path)
     
     # Create output directory structure
     output_images = output_path / "images"
@@ -67,11 +67,11 @@ def create_filtered_dataset(original_dataset_path, output_base_path):
     
     return filtered_counts
 
-def create_filtered_yaml(output_base_path, filtered_counts):
+def create_filtered_yaml(output_filtered_dataset_path, filtered_counts):
     """
     Create the YAML file for the filtered dataset
     """
-    output_path = Path(output_base_path)
+    output_path = Path(output_filtered_dataset_path)
     yaml_path = f'{Config.current_path}/filtered_comic.yaml'
     
     # Create YAML structure
@@ -131,17 +131,17 @@ def main():
 if __name__ == "__main__":# Configuration
     # Configuration
     original_dataset_path = "/home/jebineinstein/git/comic-panel-extractor/comic_panel_extractor/dataset"
-    output_base_path = "/home/jebineinstein/git/comic-panel-extractor/comic_panel_extractor"
+    output_filtered_dataset_path = "/home/jebineinstein/git/comic-panel-extractor/comic_panel_extractor/filtered_dataset"
     
     print("🔍 Starting dataset filtering...")
     print(f"📂 Source: {original_dataset_path}")
-    print(f"📁 Output: {output_base_path}")
+    print(f"📁 Output: {output_filtered_dataset_path}")
     
     # Create filtered dataset
-    filtered_counts = create_filtered_dataset(original_dataset_path, output_base_path)
+    filtered_counts = create_filtered_dataset(original_dataset_path, output_filtered_dataset_path)
     
     # Create YAML file
-    yaml_path = create_filtered_yaml(output_base_path, filtered_counts)
+    yaml_path = create_filtered_yaml(output_filtered_dataset_path, filtered_counts)
     
     # Summary
     total_filtered = sum(filtered_counts.values())

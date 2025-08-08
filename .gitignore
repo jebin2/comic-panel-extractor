@@ -219,3 +219,5 @@ yolo_output/
 *:Zone.Identifier
 comic_panel_extractor/best.pt
 *.pt
+comic_panel_extractor/filtered_comic.yaml
+comic_panel_extractor/filtered_dataset

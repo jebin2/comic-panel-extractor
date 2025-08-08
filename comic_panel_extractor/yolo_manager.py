@@ -68,7 +68,7 @@ class YOLOManager:
             print(f"📦 Loading model from: {weights_path}")
             self.model = YOLO(weights_path)
         else:
-            print("✨ Loading pretrained model 'yolo11s.pt'")
+            print("✨ Loading pretrained model 'yolo12s.pt'")
             self.model = YOLO(f"{Config.current_path}/yolo12s.pt")
         return self.model
     
@@ -111,7 +111,9 @@ class YOLOManager:
             'cache': True,
             'project': f'{Config.current_path}/runs/detect',
             'exist_ok': True,
-            'resume': resume_flag
+            'pose': False,
+            'resume': resume_flag,
+            'amp': False,  # 🚫 Disable AMP to prevent yolo11n.pt download
         }
         
         # Update with custom parameters
