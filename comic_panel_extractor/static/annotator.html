@@ -146,7 +146,8 @@
             margin-bottom: 6px;
         }
 
-        .form-select, .form-input {
+        .form-select,
+        .form-input {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid #d1d5db;
@@ -156,7 +157,8 @@
             transition: all 0.2s;
         }
 
-        .form-select:focus, .form-input:focus {
+        .form-select:focus,
+        .form-input:focus {
             outline: none;
             border-color: #4299e1;
             box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
@@ -392,6 +394,7 @@
                 transform: translateX(100%);
                 opacity: 0;
             }
+
             to {
                 transform: translateX(0);
                 opacity: 1;
@@ -439,13 +442,13 @@
             .main-container {
                 flex-direction: column;
             }
-            
+
             .sidebar {
                 width: 100%;
                 height: auto;
                 max-height: 300px;
             }
-            
+
             .canvas-area {
                 height: calc(100vh - 372px);
             }
@@ -478,7 +481,7 @@
             <!-- Image Selection -->
             <div class="sidebar-section">
                 <div class="section-title">Image Selection</div>
-                
+
                 <div class="image-nav">
                     <button class="btn btn-ghost btn-sm" id="prevBtn" disabled>
                         ← Prev
@@ -579,7 +582,7 @@
                     Click and drag to create annotation boxes • Select boxes to move or resize
                 </span>
             </div>
-            
+
             <div class="canvas-container">
                 <canvas id="annotationCanvas" style="display: none;"></canvas>
                 <div id="canvasPlaceholder" class="canvas-placeholder">
@@ -918,22 +921,36 @@
                 if (this.isDrawing && this.currentBox) {
                     // Only add box if it has meaningful size
                     if (Math.abs(this.currentBox.width) > 10 && Math.abs(this.currentBox.height) > 10) {
-                        const box = {
-                            left: Math.min(this.startX, this.startX + this.currentBox.width),
-                            top: Math.min(this.startY, this.startY + this.currentBox.height),
-                            width: Math.abs(this.currentBox.width),
-                            height: Math.abs(this.currentBox.height),
-                            type: 'rect',
-                            stroke: '#ff0000',
-                            strokeWidth: 3,
-                            fill: 'rgba(255, 0, 0, 0.3)',
-                            saved: false
-                        };
+                        let left = Math.min(this.startX, this.startX + this.currentBox.width);
+                        let top = Math.min(this.startY, this.startY + this.currentBox.height);
+                        let width = Math.abs(this.currentBox.width);
+                        let height = Math.abs(this.currentBox.height);
 
-                        this.boxes.push(box);
-                        this.selectedBoxIndex = this.boxes.length - 1;
-                        document.getElementById('boxCount').textContent = this.boxes.length;
-                        this.updateSelectedBoxInfo();
+                        // Apply boundary conditions
+                        left = Math.max(0, left);
+                        top = Math.max(0, top);
+                        width = Math.min(width, this.originalWidth - left);
+                        height = Math.min(height, this.originalHeight - top);
+
+                        // Only create box if it still has valid dimensions after boundary check
+                        if (width > 10 && height > 10) {
+                            const box = {
+                                left: left,
+                                top: top,
+                                width: width,
+                                height: height,
+                                type: 'rect',
+                                stroke: '#ff0000',
+                                strokeWidth: 3,
+                                fill: 'rgba(255, 0, 0, 0.3)',
+                                saved: false
+                            };
+
+                            this.boxes.push(box);
+                            this.selectedBoxIndex = this.boxes.length - 1;
+                            document.getElementById('boxCount').textContent = this.boxes.length;
+                            this.updateSelectedBoxInfo();
+                        }
                     }
                     this.currentBox = null;
                 }
@@ -945,6 +962,7 @@
                 this.canvas.style.cursor = 'crosshair';
                 this.drawCanvas();
             }
+
 
             updateCursor(x, y) {
                 if (this.selectedBoxIndex >= 0) {
@@ -1010,61 +1028,80 @@
                     case 'nw':
                         const newWidth = box.width + (box.left - x);
                         const newHeight = box.height + (box.top - y);
+                        const newLeft = Math.max(0, x);
+                        const newTop = Math.max(0, y);
+
                         if (newWidth > 10 && newHeight > 10) {
-                            box.width = newWidth;
-                            box.height = newHeight;
-                            box.left = x;
-                            box.top = y;
+                            box.width = Math.min(newWidth, box.left + box.width);
+                            box.height = Math.min(newHeight, box.top + box.height);
+                            box.left = newLeft;
+                            box.top = newTop;
                         }
                         break;
+
                     case 'ne':
-                        const neWidth = x - box.left;
+                        const neWidth = Math.min(x - box.left, this.originalWidth - box.left);
                         const neHeight = box.height + (box.top - y);
+                        const neTop = Math.max(0, y);
+
                         if (neWidth > 10 && neHeight > 10) {
                             box.width = neWidth;
-                            box.height = neHeight;
-                            box.top = y;
+                            box.height = Math.min(neHeight, box.top + box.height);
+                            box.top = neTop;
                         }
                         break;
+
                     case 'sw':
                         const swWidth = box.width + (box.left - x);
-                        const swHeight = y - box.top;
+                        const swHeight = Math.min(y - box.top, this.originalHeight - box.top);
+                        const swLeft = Math.max(0, x);
+
                         if (swWidth > 10 && swHeight > 10) {
-                            box.width = swWidth;
+                            box.width = Math.min(swWidth, box.left + box.width);
                             box.height = swHeight;
-                            box.left = x;
+                            box.left = swLeft;
                         }
                         break;
+
                     case 'se':
-                        const seWidth = x - box.left;
-                        const seHeight = y - box.top;
+                        const seWidth = Math.min(x - box.left, this.originalWidth - box.left);
+                        const seHeight = Math.min(y - box.top, this.originalHeight - box.top);
+
                         if (seWidth > 10 && seHeight > 10) {
                             box.width = seWidth;
                             box.height = seHeight;
                         }
                         break;
+
                     case 'n':
                         const nHeight = box.height + (box.top - y);
+                        const nTop = Math.max(0, y);
+
                         if (nHeight > 10) {
-                            box.height = nHeight;
-                            box.top = y;
+                            box.height = Math.min(nHeight, box.top + box.height);
+                            box.top = nTop;
                         }
                         break;
+
                     case 's':
-                        const sHeight = y - box.top;
+                        const sHeight = Math.min(y - box.top, this.originalHeight - box.top);
                         if (sHeight > 10) {
                             box.height = sHeight;
                         }
                         break;
+
                     case 'w':
                         const wWidth = box.width + (box.left - x);
+                        const wLeft = Math.max(0, x);
+
                         if (wWidth > 10) {
-                            box.width = wWidth;
-                            box.left = x;
+                            box.width = Math.min(wWidth, box.left + box.width);
+                            box.left = wLeft;
                         }
                         break;
+
                     case 'e':
-                        const eWidth = x - box.left;
+                        const eWidth = Math.min(x - box.left, this.originalWidth - box.left);
                         if (eWidth > 10) {
                             box.width = eWidth;
                         }
@@ -1075,16 +1112,23 @@
                 this.updateSelectedBoxInfo();
             }
 
+
             moveBox(boxIndex, deltaX, deltaY) {
                 if (boxIndex < 0 || boxIndex >= this.boxes.length) return;
 
                 const box = this.boxes[boxIndex];
-                box.left += deltaX;
-                box.top += deltaY;
 
-                // Keep box within canvas bounds
-                box.left = Math.max(0, Math.min(this.canvas.width - box.width, box.left));
-                box.top = Math.max(0, Math.min(this.canvas.height - box.height, box.top));
+                // Calculate new position
+                let newLeft = box.left + deltaX;
+                let newTop = box.top + deltaY;
+
+                // Apply boundary conditions
+                newLeft = Math.max(0, Math.min(this.originalWidth - box.width, newLeft));
+                newTop = Math.max(0, Math.min(this.originalHeight - box.height, newTop));
+
+                // Update box position
+                box.left = newLeft;
+                box.top = newTop;
 
                 box.saved = false;
                 this.updateSelectedBoxInfo();
@@ -1119,27 +1163,27 @@
                     }
                 } else {
                     // Regular arrow keys for moving
-                switch (e.key) {
-                    case 'ArrowLeft':
-                        e.preventDefault();
-                        this.moveBox(this.selectedBoxIndex, -moveDistance, 0);
-                        this.drawCanvas();
-                        break;
-                    case 'ArrowRight':
-                        e.preventDefault();
-                        this.moveBox(this.selectedBoxIndex, moveDistance, 0);
-                        this.drawCanvas();
-                        break;
-                    case 'ArrowUp':
-                        e.preventDefault();
-                        this.moveBox(this.selectedBoxIndex, 0, -moveDistance);
-                        this.drawCanvas();
-                        break;
-                    case 'ArrowDown':
-                        e.preventDefault();
-                        this.moveBox(this.selectedBoxIndex, 0, moveDistance);
-                        this.drawCanvas();
-                        break;
+                    switch (e.key) {
+                        case 'ArrowLeft':
+                            e.preventDefault();
+                            this.moveBox(this.selectedBoxIndex, -moveDistance, 0);
+                            this.drawCanvas();
+                            break;
+                        case 'ArrowRight':
+                            e.preventDefault();
+                            this.moveBox(this.selectedBoxIndex, moveDistance, 0);
+                            this.drawCanvas();
+                            break;
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            this.moveBox(this.selectedBoxIndex, 0, -moveDistance);
+                            this.drawCanvas();
+                            break;
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            this.moveBox(this.selectedBoxIndex, 0, moveDistance);
+                            this.drawCanvas();
+                            break;
                     }
                 }
 
@@ -1164,25 +1208,32 @@
                 if (this.selectedBoxIndex < 0) return;
 
                 const box = this.boxes[this.selectedBoxIndex];
-                
-                // Calculate new dimensions
-                const newWidth = box.width + deltaWidth;
-                const newHeight = box.height + deltaHeight;
 
-                // Only resize if the new dimensions are reasonable (minimum 10px)
+                // Calculate new dimensions
+                let newWidth = box.width + deltaWidth;
+                let newHeight = box.height + deltaHeight;
+
+                // Apply boundary conditions for width
                 if (newWidth >= 10) {
+                    // Ensure box doesn't exceed original width
+                    newWidth = Math.min(newWidth, this.originalWidth - box.left);
                     box.width = newWidth;
-                    // Keep box within canvas bounds
-                    if (box.left + box.width > this.canvas.width) {
-                        box.left = this.canvas.width - box.width;
+
+                    // Adjust left position if needed
+                    if (box.left + box.width > this.originalWidth) {
+                        box.left = this.originalWidth - box.width;
                     }
                 }
 
+                // Apply boundary conditions for height
                 if (newHeight >= 10) {
+                    // Ensure box doesn't exceed original height
+                    newHeight = Math.min(newHeight, this.originalHeight - box.top);
                     box.height = newHeight;
-                    // Keep box within canvas bounds
-                    if (box.top + box.height > this.canvas.height) {
-                        box.top = this.canvas.height - box.height;
+
+                    // Adjust top position if needed
+                    if (box.top + box.height > this.originalHeight) {
+                        box.top = this.originalHeight - box.height;
                     }
                 }
 
@@ -1190,6 +1241,7 @@
                 this.updateSelectedBoxInfo();
                 this.drawCanvas();
             }
+
 
             deleteSelectedBox() {
                 if (this.selectedBoxIndex >= 0) {
