@@ -547,6 +547,9 @@
                 <button class="btn btn-primary btn-block" id="reloadBtn">
                     🔄 Reload Annotations
                 </button>
+                <button class="btn btn-primary btn-block" id="detectBtn">
+                    🔄 Detect Annotations
+                </button>
                 <button class="btn btn-secondary btn-block" id="downloadBtn" style="display: none; margin-top: 8px;">
                     📥 Download
                 </button>
@@ -661,6 +664,7 @@
                 document.getElementById('undoBtn').addEventListener('click', () => this.undoLastBox());
                 document.getElementById('clearBtn').addEventListener('click', () => this.clearAllBoxes());
                 document.getElementById('reloadBtn').addEventListener('click', () => this.reloadAnnotations());
+                document.getElementById('detectBtn').addEventListener('click', () => this.detectAnnotations());
                 document.getElementById('downloadBtn').addEventListener('click', () => this.downloadAnnotations());
 
                 // Canvas events
@@ -1353,6 +1357,27 @@
 
                 try {
                     const response = await fetch(`/api/annotate/annotations/${encodeURIComponent(this.currentImage)}`);
+                    const data = await response.json();
+
+                    this.boxes = (data.boxes || []).map(box => ({
+                        ...box,
+                        saved: true
+                    }));
+                    this.selectedBoxIndex = -1;
+                    document.getElementById('boxCount').textContent = this.boxes.length;
+                    this.updateSelectedBoxInfo();
+                    this.drawCanvas();
+                    this.showAlert('Annotations reloaded from file', 'success');
+                } catch (error) {
+                    this.showAlert('Error reloading annotations: ' + error.message, 'error');
+                }
+            }
+
+            async detectAnnotations() {
+                if (!this.currentImage) return;
+
+                try {
+                    const response = await fetch(`/api/annotate/detect_annotations/${encodeURIComponent(this.currentImage)}`);
                     const data = await response.json();
 
                     this.boxes = (data.boxes || []).map(box => ({

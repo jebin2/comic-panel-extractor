@@ -55,11 +55,22 @@ def get_label_path(image_name: str) -> str:
     return os.path.join(LABEL_ROOT, os.path.splitext(image_name)[0] + ".txt")
 
 # === Core Functions ===
-def load_yolo_boxes(image_path: str, label_path: str):
+def load_yolo_boxes(image_path: str, label_path: str, detect: bool = False):
     try:
         img = Image.open(image_path)
         w, h = img.size
         boxes = []
+        if detect and not os.path.exists(label_path):
+            from .yolo_manager import YOLOManager
+            from .utils import Config
+            yolo_manager = YOLOManager()
+            weights_path = f'{current_path}/{Config.YOLO_MODEL_NAME}.pt'
+
+            yolo_manager.load_model(weights_path)
+
+            # Run inference
+            _, label_path = yolo_manager.annotate_images(image_paths=[image_path], output_dir=IMAGE_LABEL_ROOT, save_image=False, label_path=label_path)
+
         if os.path.exists(label_path):
             with open(label_path, "r") as f:
                 for line in f:
@@ -154,6 +165,21 @@ async def get_annotations(image_name: str):
         raise HTTPException(status_code=404, detail="Image not found")
 
     boxes, (width, height) = load_yolo_boxes(image_path, label_path)
+    return {
+        "boxes": boxes,
+        "original_width": width,
+        "original_height": height
+    }
+
+@app.get("/api/annotate/detect_annotations/{image_name:path}")
+async def get_annotations(image_name: str):
+    image_path = get_image_path(image_name)
+    label_path = get_label_path(image_name)
+
+    if not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    boxes, (width, height) = load_yolo_boxes(image_path, label_path, True)
     return {
         "boxes": boxes,
         "original_width": width,

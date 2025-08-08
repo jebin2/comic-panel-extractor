@@ -66,7 +66,7 @@ import os
 import cv2
 from ultralytics import YOLO
 from typing import List, Optional, Dict, Any
-from utils import Config, get_abs_path, clean_directory
+from .utils import Config, get_abs_path, clean_directory
 
 class YOLOManager:
     """Manages YOLO model training and inference operations."""
@@ -153,13 +153,13 @@ class YOLOManager:
         
         return weights_path
     
-    def annotate_images(self, image_paths: List[str], output_dir: str = 'temp_dir', image_size: int = None) -> None:
+    def annotate_images(self, image_paths: List[str], output_dir: str = 'temp_dir', image_size: int = None, save_image: bool = True, label_path: str = None) -> None:
         """
-        Annotate images with model predictions.
+        Annotate images with model predictions and save YOLO-format label files.
         
         Args:
             image_paths: List of image file paths
-            output_dir: Directory to save annotated images
+            output_dir: Directory to save annotated images and labels
             image_size: Size for inference
         """
         if not self.model:
@@ -169,30 +169,63 @@ class YOLOManager:
             raise ValueError("❌ No images provided for annotation.")
         
         image_size = image_size or Config.DEFAULT_IMAGE_SIZE
-        clean_directory(output_dir)
-        
-        print(f"🎨 Annotating {len(image_paths)} images...")
+        # clean_directory(output_dir)
+        totla_images = len(image_paths)
+        print(f"🎨 Annotating {totla_images} images and saving labels...")
         
         for idx, image_path in enumerate(image_paths):
             if not os.path.isfile(image_path):
                 print(f"⚠️ Warning: Skipping non-existent file {image_path}")
                 continue
-                
+            
             print(f'🔍 Processing ({idx+1}/{len(image_paths)}): {os.path.basename(image_path)}')
             
             try:
+                # Load image for size info
+                img = cv2.imread(image_path)
+                h, w = img.shape[:2]
+                
+                # Run inference
                 results = self.model(image_path, imgsz=image_size)
                 annotated_frame = results[0].plot()
                 
-                # Use original filename with prefix
+                # Prepare save paths
                 original_name = os.path.basename(image_path)
                 name, ext = os.path.splitext(original_name)
-                save_path = os.path.join(output_dir, f'annotated_{name}{ext}')
-                
-                cv2.imwrite(save_path, annotated_frame)
-                print(f'✅ Saved: {save_path}')
+
+                save_img_path = None
+                save_txt_path = os.path.join(output_dir, f'{name}.txt')  # YOLO label txt
+                if save_image:
+                    save_img_path = os.path.join(output_dir, f'annotated_{name}{ext}')
+                    # Save annotated image
+                    cv2.imwrite(save_img_path, annotated_frame)
+
+                # Write YOLO label file
+                with open(save_txt_path, 'w') as f:
+                    for box in results[0].boxes:
+                        # box.xyxy format: (xmin, ymin, xmax, ymax)
+                        xyxy = box.xyxy[0].tolist()
+                        cls_id = int(box.cls[0].item())  # class id
+
+                        xmin, ymin, xmax, ymax = xyxy
+                        # Convert to YOLO format (normalized)
+                        x_center = ((xmin + xmax) / 2) / w
+                        y_center = ((ymin + ymax) / 2) / h
+                        width = (xmax - xmin) / w
+                        height = (ymax - ymin) / h
+
+                        # Write one line per object
+                        f.write(f"{cls_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}\n")
+
+                if label_path:
+                    shutil.copyfile(save_txt_path, label_path)
+                print(f'✅ Saved annotated image: {save_img_path}')
+                print(f'✅ Saved label file: {save_txt_path}')
+                print(f"🎉 Annotation and label saving complete! Results saved to: {output_dir}")
+
+                if totla_images == 1:
+                    return save_img_path, save_txt_path
                 
             except Exception as e:
                 print(f"❌ Error processing {image_path}: {str(e)}")
-        
-        print(f"🎉 Annotation complete! Results saved to: {output_dir}")
+                return None, None
