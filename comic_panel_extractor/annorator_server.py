@@ -63,13 +63,13 @@ def load_yolo_boxes(image_path: str, label_path: str, detect: bool = False):
         if detect and not os.path.exists(label_path):
             from .yolo_manager import YOLOManager
             from .utils import Config
-            yolo_manager = YOLOManager()
-            weights_path = f'{current_path}/{Config.YOLO_MODEL_NAME}.pt'
+            with YOLOManager() as yolo_manager:
+                weights_path = f'{current_path}/{Config.YOLO_MODEL_NAME}.pt'
 
-            yolo_manager.load_model(weights_path)
+                yolo_manager.load_model(weights_path)
 
-            # Run inference
-            _, label_path = yolo_manager.annotate_images(image_paths=[image_path], output_dir=IMAGE_LABEL_ROOT, save_image=False, label_path=label_path)
+                # Run inference
+                _, label_path = yolo_manager.annotate_images(image_paths=[image_path], output_dir=IMAGE_LABEL_ROOT, save_image=False, label_path=label_path)
 
         if os.path.exists(label_path):
             with open(label_path, "r") as f:

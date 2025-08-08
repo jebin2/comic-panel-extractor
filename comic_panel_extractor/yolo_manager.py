@@ -229,3 +229,33 @@ class YOLOManager:
             except Exception as e:
                 print(f"❌ Error processing {image_path}: {str(e)}")
                 return None, None
+
+    def __enter__(self):
+        # When entering context, just return self
+        return self
+
+    def __del__(self):
+        # On exit, unload model and clear cache
+        self.unload_model()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # On exit, unload model and clear cache
+        self.unload_model()
+
+    def unload_model(self):
+        if self.model is not None:
+            print("🧹 Unloading YOLO model and clearing CUDA cache...")
+            try:
+                import torch
+                import gc
+                del self.model
+                self.model = None
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    torch.cuda.ipc_collect()
+                print("✅ Model unloaded and GPU cache cleared.")
+            except Exception as e:
+                print(f"❌ Error unloading model: {e}")
+        else:
+            print("⚠️ No model loaded to unload.")
