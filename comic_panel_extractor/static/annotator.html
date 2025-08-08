@@ -547,7 +547,7 @@
                 <button class="btn btn-primary btn-block" id="reloadBtn">
                     🔄 Reload Annotations
                 </button>
-                <button class="btn btn-primary btn-block" id="detectBtn" style="margin-top: 8px;">
+                <button class="btn btn-primary btn-block" id="detectBtn" style="display: none; margin-top: 8px;">
                     🔄 Detect Annotations
                 </button>
                 <button class="btn btn-secondary btn-block" id="downloadBtn" style="display: none; margin-top: 8px;">
@@ -773,6 +773,7 @@
                         document.getElementById('canvasPlaceholder').style.display = 'none';
                         this.canvas.style.display = 'block';
                         document.getElementById('downloadBtn').style.display = 'block';
+                        document.getElementById('detectBtn').style.display = 'block';
                     };
                     img.src = imageData.image_data;
 
@@ -1388,7 +1389,7 @@
                     document.getElementById('boxCount').textContent = this.boxes.length;
                     this.updateSelectedBoxInfo();
                     this.drawCanvas();
-                    this.showAlert('Annotations reloaded from file', 'success');
+                    this.showAlert('Annotations detected and loaded from file', 'success');
                 } catch (error) {
                     this.showAlert('Error reloading annotations: ' + error.message, 'error');
                 }
