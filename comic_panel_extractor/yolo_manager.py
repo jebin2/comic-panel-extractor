@@ -7,12 +7,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-class Config:
-    """Configuration class to manage environment variables and paths."""
-    YOLO_MODEL_NAME = os.getenv('YOLO_MODEL_NAME', 'default_model')
-    DEFAULT_IMAGE_SIZE = 640
-    SUPPORTED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'JPG', 'JPEG', 'PNG']
-
 def get_abs_path(relative_path: str) -> str:
     """Convert relative path to absolute path."""
     return os.path.abspath(relative_path)
@@ -45,14 +39,6 @@ def get_image_paths(directories: Union[str, List[str]]) -> List[str]:
     
     return list(set(all_images))  # Remove duplicates
 
-def clean_directory(directory: str, create_if_not_exists: bool = True) -> None:
-    """Clean directory contents or create if it doesn't exist."""
-    if os.path.exists(directory):
-        shutil.rmtree(directory)
-    
-    if create_if_not_exists:
-        os.makedirs(directory, exist_ok=True)
-
 def backup_file(source_path: str, backup_path: str) -> str:
     """Backup a file to specified location."""
     backup_path = get_abs_path(backup_path)
@@ -66,7 +52,8 @@ import os
 import cv2
 from ultralytics import YOLO
 from typing import List, Optional, Dict, Any
-from .utils import Config, get_abs_path, clean_directory
+from .utils import get_abs_path, clean_directory
+from .config import Config
 
 class YOLOManager:
     """Manages YOLO model training and inference operations."""
@@ -82,7 +69,7 @@ class YOLOManager:
             self.model = YOLO(weights_path)
         else:
             print("✨ Loading pretrained model 'yolo11s.pt'")
-            self.model = YOLO("yolo11s.pt")
+            self.model = YOLO(f"{Config.current_path}/yolo12s.pt")
         return self.model
     
     def train(self, 
@@ -102,7 +89,7 @@ class YOLOManager:
             **kwargs: Additional training parameters
         """
         run_name = run_name or self.model_name
-        checkpoint_path = f"runs/detect/{run_name}/weights/last.pt"
+        checkpoint_path = f"{Config.current_path}/runs/detect/{run_name}/weights/last.pt"
         
         # Check for existing checkpoint
         if resume and os.path.isfile(checkpoint_path):
@@ -122,7 +109,7 @@ class YOLOManager:
             'name': run_name,
             'device': device,
             'cache': True,
-            'project': 'runs/detect',
+            'project': f'{Config.current_path}/runs/detect',
             'exist_ok': True,
             'resume': resume_flag
         }

@@ -1,7 +1,8 @@
 # inference.py
 from yolo_manager import YOLOManager
-from utils import Config, get_abs_path, get_image_paths
+from utils import get_abs_path, get_image_paths
 import os
+from .config import Config
 
 def run_inference(weights_path: str, images_dirs, output_dir: str = 'temp_dir') -> None:
     """

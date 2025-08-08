@@ -9,10 +9,8 @@ import shutil
 import time
 import mimetypes
 
-current_path = os.path.abspath(os.path.join(os.path.dirname(__file__)))
-
 base_output_folder = "api_outputs"
-output_folder = os.path.join(current_path, base_output_folder)
+output_folder = os.path.join(Config.current_path, base_output_folder)
 
 app = APIRouter()
 

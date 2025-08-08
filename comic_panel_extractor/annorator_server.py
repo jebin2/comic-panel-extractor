@@ -7,15 +7,14 @@ import os
 import base64
 from io import BytesIO
 import shutil
-
-current_path = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+from .config import Config
 
 app = APIRouter()
 
 # === Configuration ===
-IMAGE_ROOT = os.path.join(current_path, "dataset/images")
-LABEL_ROOT = os.path.join(current_path, "dataset/labels")
-IMAGE_LABEL_ROOT = os.path.join(current_path, "image_labels")
+IMAGE_ROOT = os.path.join(Config.current_path, "dataset/images")
+LABEL_ROOT = os.path.join(Config.current_path, "dataset/labels")
+IMAGE_LABEL_ROOT = os.path.join(Config.current_path, "image_labels")
 
 CLASS_ID = 0
 
@@ -62,9 +61,8 @@ def load_yolo_boxes(image_path: str, label_path: str, detect: bool = False):
         boxes = []
         if detect and not os.path.exists(label_path):
             from .yolo_manager import YOLOManager
-            from .utils import Config
             with YOLOManager() as yolo_manager:
-                weights_path = f'{current_path}/{Config.YOLO_MODEL_NAME}.pt'
+                weights_path = f'{Config.current_path}/{Config.YOLO_MODEL_NAME}.pt'
 
                 yolo_manager.load_model(weights_path)
 
