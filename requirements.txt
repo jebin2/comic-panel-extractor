@@ -12,3 +12,5 @@ scikit-learn
 ultralytics
 Pillow
 opencv-contrib-python
+dotenv
+tqdm

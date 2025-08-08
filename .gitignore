@@ -208,5 +208,13 @@ __marimo__/
 temp_dir
 input.jpg
 comic_panel_extractor/api_outputs/
+comic_panel_extractor/dataset/
+comic_panel_extractor/images/
+comic_panel_extractor/image_labels/
+comic_panel_extractor/runs/
+comic_panel_extractor/temp_dir/
 temp.py
 test*.jpg
+yolo_output/
+*:Zone.Identifier
+comic_panel_extractor/best.pt

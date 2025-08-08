@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📸 Comic Panel Annotator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+            color: #1a202c;
+        }
+
+        /* Top Navigation Bar */
+        .top-nav {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            height: calc(100vh - 72px);
+            overflow: hidden;
+        }
+
+        /* Left Sidebar */
+        .sidebar {
+            width: 320px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            padding: 20px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .sidebar-section:last-child {
+            border-bottom: none;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Canvas Area */
+        .canvas-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #f8fafc;
+            position: relative;
+        }
+
+        .canvas-toolbar {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .canvas-container {
+            flex: 1;
+            overflow: auto;
+            display: flex;
+            /* justify-content: center; */
+            align-items: flex-start;
+            padding: 20px;
+            width: fit-content;
+        }
+
+        canvas {
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: crosshair;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            background: white;
+            width: 100%;
+        }
+
+        canvas:hover {
+            border-color: #4299e1;
+        }
+
+        .canvas-placeholder {
+            text-align: center;
+            padding: 60px 40px;
+            color: #a0aec0;
+            background: white;
+            border-radius: 12px;
+            border: 2px dashed #e2e8f0;
+        }
+
+        /* Form Elements */
+        /* .form-field {
+            margin-bottom: 16px;
+        } */
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: #4a5568;
+            margin-bottom: 6px;
+        }
+
+        .form-select, .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            transition: all 0.2s;
+        }
+
+        .form-select:focus, .form-input:focus {
+            outline: none;
+            border-color: #4299e1;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            justify-content: center;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #4299e1;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #3182ce;
+        }
+
+        .btn-secondary {
+            background: #718096;
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #4a5568;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #38a169;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #e53e3e;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-ghost:hover:not(:disabled) {
+            background: #f7fafc;
+            border-color: #cbd5e0;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn-block {
+            width: 100%;
+        }
+
+        /* Navigation Controls */
+        .image-nav {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #f7fafc;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .nav-counter {
+            font-size: 13px;
+            font-weight: 500;
+            color: #4a5568;
+            min-width: 80px;
+            text-align: center;
+            word-break: break-word;
+        }
+
+        /* Progress Indicator */
+        .progress-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .progress-stat {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #48bb78;
+            transition: width 0.3s ease;
+        }
+
+        /* Info Cards */
+        .info-card {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-size: 13px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .info-value {
+            font-size: 13px;
+            color: #1a202c;
+            font-weight: 600;
+        }
+
+        /* File Upload */
+        .file-upload {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .file-upload input[type=file] {
+            position: absolute;
+            opacity: 0;
+            left: -9999px;
+        }
+
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 32px 20px;
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #4a5568;
+        }
+
+        .file-upload-label:hover {
+            border-color: #4299e1;
+            background: #f7fafc;
+        }
+
+        /* Alerts */
+        .alerts {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.3s ease;
+        }
+
+        .alert-success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .alert-error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+
+        .alert-info {
+            background: #bee3f8;
+            color: #2a4365;
+            border: 1px solid #90cdf4;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Quick Help */
+        .help-section {
+            background: #fffbf0;
+            border: 1px solid #fbd38d;
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .help-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #744210;
+        }
+
+        .help-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .kbd {
+            background: #2d3748;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 280px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 300px;
+            }
+            
+            .canvas-area {
+                height: calc(100vh - 372px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Top Navigation -->
+    <div class="top-nav">
+        <div class="logo">
+            📸 Comic Panel Annotator
+        </div>
+        <div class="nav-actions">
+            <button class="btn btn-success btn-sm" id="saveBtn">
+                💾 Save
+            </button>
+            <button class="btn btn-secondary btn-sm" id="undoBtn">
+                ↩️ Undo
+            </button>
+            <button class="btn btn-danger btn-sm" id="clearBtn">
+                🗑️ Clear All
+            </button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+            <!-- Image Selection -->
+            <div class="sidebar-section">
+                <div class="section-title">Image Selection</div>
+                
+                <div class="image-nav">
+                    <button class="btn btn-ghost btn-sm" id="prevBtn" disabled>
+                        ← Prev
+                    </button>
+                    <!-- <div class="nav-counter" id="currentImageDisplay">
+                        No image
+                    </div> -->
+
+                    <div class="form-field">
+                        <select class="form-select" id="imageSelect">
+                            <option value="">Choose an image...</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-ghost btn-sm" id="nextBtn" disabled>
+                        Next →
+                    </button>
+                </div>
+
+                <div class="file-upload">
+                    <input type="file" id="uploadFile" accept="image/*">
+                    <label for="uploadFile" class="file-upload-label">
+                        📤 Drop or click to upload
+                    </label>
+                </div>
+            </div>
+
+            <!-- Progress -->
+            <div class="sidebar-section">
+                <div class="progress-section">
+                    <h3 style="margin-bottom: 12px; font-size: 16px;">Progress</h3>
+                    <div class="progress-stat">
+                        <span>Annotated</span>
+                        <span><span id="annotatedImages">0</span>/<span id="totalImages">0</span></span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Image Info -->
+            <div class="sidebar-section" id="currentImageInfo" style="display: none;">
+                <div class="section-title">Current Image</div>
+                <div class="info-card">
+                    <div class="info-row">
+                        <span class="info-label">Boxes</span>
+                        <span class="info-value" id="boxCount">0</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Size</span>
+                        <span class="info-value" id="imageSize">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Selected</span>
+                        <span class="info-value" id="selectedBoxInfo">None</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="sidebar-section">
+                <div class="section-title">Actions</div>
+                <button class="btn btn-primary btn-block" id="reloadBtn">
+                    🔄 Reload Annotations
+                </button>
+                <button class="btn btn-secondary btn-block" id="downloadBtn" style="display: none; margin-top: 8px;">
+                    📥 Download
+                </button>
+            </div>
+
+            <!-- Quick Help -->
+            <div class="sidebar-section">
+                <div class="section-title">Quick Help</div>
+                <div class="help-section">
+                    <div class="help-item">
+                        <strong>Draw:</strong> Click & drag on image
+                    </div>
+                    <div class="help-item">
+                        <strong>Move:</strong> <span class="kbd">↑↓←→</span> keys
+                    </div>
+                    <div class="help-item">
+                        <strong>Resize:</strong> <span class="kbd">Shift</span> + arrows
+                    </div>
+                    <div class="help-item">
+                        <strong>Delete:</strong> <span class="kbd">Del</span> key
+                    </div>
+                    <div class="help-item">
+                        <strong>Colors:</strong> 🟢 Saved, 🔴 New, 🔵 Selected
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Canvas Area -->
+        <div class="canvas-area">
+            <div class="canvas-toolbar">
+                <span id="file_name" style="font-size: 13px; color: #4a5568;">
+                    Click and drag to create annotation boxes • Select boxes to move or resize
+                </span>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="annotationCanvas" style="display: none;"></canvas>
+                <div id="canvasPlaceholder" class="canvas-placeholder">
+                    <h3 style="margin-bottom: 8px;">Select an image to start annotating</h3>
+                    <p>Choose from the dropdown or upload a new image</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerts Container -->
+    <div class="alerts" id="alerts"></div>
+
+    <script>
+        class ComicAnnotator {
+            constructor() {
+                this.canvas = document.getElementById('annotationCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.boxes = [];
+                this.images = [];
+                this.currentImageIndex = -1;
+                this.currentImage = null;
+                this.backgroundImage = null;
+                this.originalWidth = 0;
+                this.originalHeight = 0;
+
+                // Drawing state
+                this.isDrawing = false;
+                this.startX = 0;
+                this.startY = 0;
+                this.currentBox = null;
+
+                // Box editing state
+                this.selectedBoxIndex = -1;
+                this.isDragging = false;
+                this.isResizing = false;
+                this.dragStartX = 0;
+                this.dragStartY = 0;
+                this.resizeHandle = null;
+                this.lastMouseX = 0;
+                this.lastMouseY = 0;
+
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.loadImages();
+            }
+
+            setupEventListeners() {
+                // Image selection
+                document.getElementById('imageSelect').addEventListener('change', (e) => {
+                    if (e.target.value) {
+                        const index = this.images.findIndex(img => img.name === e.target.value);
+                        if (index >= 0) {
+                            this.currentImageIndex = index;
+                            this.loadImage(e.target.value);
+                        }
+                    }
+                });
+
+                // Navigation buttons
+                document.getElementById('prevBtn').addEventListener('click', () => this.navigatePrevious());
+                document.getElementById('nextBtn').addEventListener('click', () => this.navigateNext());
+
+                // File upload
+                document.getElementById('uploadFile').addEventListener('change', (e) => {
+                    if (e.target.files[0]) {
+                        this.uploadImage(e.target.files[0]);
+                    }
+                });
+
+                // Action buttons
+                document.getElementById('saveBtn').addEventListener('click', () => this.saveAnnotations());
+                document.getElementById('undoBtn').addEventListener('click', () => this.undoLastBox());
+                document.getElementById('clearBtn').addEventListener('click', () => this.clearAllBoxes());
+                document.getElementById('reloadBtn').addEventListener('click', () => this.reloadAnnotations());
+                document.getElementById('downloadBtn').addEventListener('click', () => this.downloadAnnotations());
+
+                // Canvas events
+                this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+                this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+                this.canvas.addEventListener('mouseup', () => this.onMouseUp());
+                this.canvas.addEventListener('mouseleave', () => this.onMouseUp());
+
+                // Keyboard events
+                document.addEventListener('keydown', (e) => this.onKeyDown(e));
+
+                // Make canvas focusable for keyboard events
+                this.canvas.tabIndex = 0;
+            }
+
+            async loadImages() {
+                try {
+                    const response = await fetch('/api/annotate/images');
+                    this.images = await response.json();
+
+                    const select = document.getElementById('imageSelect');
+                    select.innerHTML = '<option value="">Choose an image...</option>';
+
+                    this.images.forEach(img => {
+                        const option = document.createElement('option');
+                        option.value = img.name;
+                        option.textContent = `${img.name} ${img.has_annotations ? '✓' : ''}`;
+                        select.appendChild(option);
+                    });
+
+                    // Update progress
+                    const annotated = this.images.filter(img => img.has_annotations).length;
+                    document.getElementById('totalImages').textContent = this.images.length;
+                    document.getElementById('annotatedImages').textContent = annotated;
+                    const progress = this.images.length > 0 ? (annotated / this.images.length) * 100 : 0;
+                    document.getElementById('progressFill').style.width = progress + '%';
+
+                    this.updateNavigationButtons();
+
+                } catch (error) {
+                    this.showAlert('Error loading images: ' + error.message, 'error');
+                }
+            }
+
+            updateNavigationButtons() {
+                const prevBtn = document.getElementById('prevBtn');
+                const nextBtn = document.getElementById('nextBtn');
+
+                prevBtn.disabled = this.currentImageIndex <= 0;
+                nextBtn.disabled = this.currentImageIndex >= this.images.length - 1;
+
+                // if (this.currentImageIndex >= 0) {
+                //     const currentImageName = this.images[this.currentImageIndex].name;
+                //     document.getElementById('currentImageDisplay').textContent = `${this.currentImageIndex + 1}/${this.images.length}: ${currentImageName}`;
+                // } else {
+                //     document.getElementById('currentImageDisplay').textContent = 'No image selected';
+                // }
+            }
+
+            navigatePrevious() {
+                if (this.currentImageIndex > 0) {
+                    this.currentImageIndex--;
+                    const imageName = this.images[this.currentImageIndex].name;
+                    document.getElementById('imageSelect').value = imageName;
+                    document.getElementById('file_name').innerText = imageName;
+                    this.loadImage(imageName);
+                }
+            }
+
+            navigateNext() {
+                if (this.currentImageIndex < this.images.length - 1) {
+                    this.currentImageIndex++;
+                    const imageName = this.images[this.currentImageIndex].name;
+                    document.getElementById('imageSelect').value = imageName;
+                    document.getElementById('file_name').innerText = imageName;
+                    this.loadImage(imageName);
+                }
+            }
+
+            async loadImage(imageName) {
+                try {
+                    // Load image data
+                    const imageResponse = await fetch(`/api/annotate/image/${encodeURIComponent(imageName)}`);
+                    const imageData = await imageResponse.json();
+
+                    // Load annotations
+                    const annotationsResponse = await fetch(`/api/annotate/annotations/${encodeURIComponent(imageName)}`);
+                    const annotationsData = await annotationsResponse.json();
+
+                    this.currentImage = imageName;
+                    this.originalWidth = imageData.width;
+                    this.originalHeight = imageData.height;
+                    this.boxes = annotationsData.boxes || [];
+                    this.selectedBoxIndex = -1;
+
+                    // Load and draw image
+                    const img = new Image();
+                    img.onload = () => {
+                        this.backgroundImage = img;
+
+                        // Set canvas size to match image
+                        this.canvas.width = img.width;
+                        this.canvas.height = img.height;
+
+                        this.drawCanvas();
+                        document.getElementById('canvasPlaceholder').style.display = 'none';
+                        this.canvas.style.display = 'block';
+                        document.getElementById('downloadBtn').style.display = 'block';
+                    };
+                    img.src = imageData.image_data;
+
+                    // Update info panel
+                    document.getElementById('currentImageInfo').style.display = 'block';
+                    document.getElementById('boxCount').textContent = this.boxes.length;
+                    document.getElementById('imageSize').textContent = `${imageData.width}×${imageData.height}`;
+                    document.getElementById('selectedBoxInfo').textContent = 'None';
+
+                    this.updateNavigationButtons();
+
+                } catch (error) {
+                    this.showAlert('Error loading image: ' + error.message, 'error');
+                }
+            }
+
+            drawCanvas() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Draw background image
+                if (this.backgroundImage) {
+                    this.ctx.drawImage(this.backgroundImage, 0, 0);
+                }
+
+                // Draw existing boxes
+                this.boxes.forEach((box, index) => {
+                    let strokeColor = '#00ff00';
+                    let fillColor = 'rgba(0, 255, 0, 0.2)';
+
+                    if (index === this.selectedBoxIndex) {
+                        strokeColor = '#0066ff';
+                        fillColor = 'rgba(0, 102, 255, 0.3)';
+                    } else if (!box.saved) {
+                        strokeColor = '#ff0000';
+                        fillColor = 'rgba(255, 0, 0, 0.2)';
+                    }
+
+                    this.drawBox(box.left, box.top, box.width, box.height, strokeColor, fillColor);
+
+                    // Draw resize handles for selected box
+                    if (index === this.selectedBoxIndex) {
+                        this.drawResizeHandles(box);
+                    }
+                });
+
+                // Draw current box being drawn
+                if (this.currentBox) {
+                    this.drawBox(this.currentBox.left, this.currentBox.top,
+                        this.currentBox.width, this.currentBox.height, '#ff0000', 'rgba(255, 0, 0, 0.3)');
+                }
+            }
+
+            drawBox(x, y, width, height, strokeColor, fillColor) {
+                this.ctx.strokeStyle = strokeColor;
+                this.ctx.fillStyle = fillColor;
+                this.ctx.lineWidth = 3;
+                this.ctx.fillRect(x, y, width, height);
+                this.ctx.strokeRect(x, y, width, height);
+            }
+
+            drawResizeHandles(box) {
+                const handleSize = 10;
+                const handles = [
+                    { x: box.left - handleSize / 2, y: box.top - handleSize / 2, cursor: 'nw-resize' },
+                    { x: box.left + box.width - handleSize / 2, y: box.top - handleSize / 2, cursor: 'ne-resize' },
+                    { x: box.left - handleSize / 2, y: box.top + box.height - handleSize / 2, cursor: 'sw-resize' },
+                    { x: box.left + box.width - handleSize / 2, y: box.top + box.height - handleSize / 2, cursor: 'se-resize' },
+                    { x: box.left + box.width / 2 - handleSize / 2, y: box.top - handleSize / 2, cursor: 'n-resize' },
+                    { x: box.left + box.width / 2 - handleSize / 2, y: box.top + box.height - handleSize / 2, cursor: 's-resize' },
+                    { x: box.left - handleSize / 2, y: box.top + box.height / 2 - handleSize / 2, cursor: 'w-resize' },
+                    { x: box.left + box.width - handleSize / 2, y: box.top + box.height / 2 - handleSize / 2, cursor: 'e-resize' }
+                ];
+
+                this.ctx.fillStyle = '#0066ff';
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = 4;
+
+                handles.forEach(handle => {
+                    this.ctx.fillRect(handle.x, handle.y, handleSize, handleSize);
+                    this.ctx.strokeRect(handle.x, handle.y, handleSize, handleSize);
+                });
+            }
+
+            onMouseDown(e) {
+                if (!this.currentImage) return;
+
+                const pos = this.getMousePos(e);
+                this.lastMouseX = pos.x;
+                this.lastMouseY = pos.y;
+
+                // Check if clicking on a resize handle
+                if (this.selectedBoxIndex >= 0) {
+                    const handle = this.getResizeHandle(pos.x, pos.y);
+                    if (handle) {
+                        this.isResizing = true;
+                        this.resizeHandle = handle;
+                        this.canvas.style.cursor = handle.cursor;
+                        return;
+                    }
+                }
+
+                // Check if clicking on an existing box
+                const clickedBoxIndex = this.getBoxAtPosition(pos.x, pos.y);
+                if (clickedBoxIndex >= 0) {
+                    this.selectedBoxIndex = clickedBoxIndex;
+                    this.isDragging = true;
+                    this.dragStartX = pos.x;
+                    this.dragStartY = pos.y;
+                    this.canvas.style.cursor = 'move';
+                    this.updateSelectedBoxInfo();
+                    this.drawCanvas();
+                    return;
+                }
+
+                // Start drawing new box
+                this.selectedBoxIndex = -1;
+                this.startX = pos.x;
+                this.startY = pos.y;
+                this.isDrawing = true;
+                this.currentBox = { left: this.startX, top: this.startY, width: 0, height: 0 };
+                this.updateSelectedBoxInfo();
+            }
+
+            onMouseMove(e) {
+                if (!this.currentImage) return;
+
+                const pos = this.getMousePos(e);
+
+                if (this.isResizing && this.selectedBoxIndex >= 0) {
+                    this.resizeBox(pos.x, pos.y);
+                    this.drawCanvas();
+                } else if (this.isDragging && this.selectedBoxIndex >= 0) {
+                    const deltaX = pos.x - this.lastMouseX;
+                    const deltaY = pos.y - this.lastMouseY;
+                    this.moveBox(this.selectedBoxIndex, deltaX, deltaY);
+                    this.lastMouseX = pos.x;
+                    this.lastMouseY = pos.y;
+                    this.drawCanvas();
+                } else if (this.isDrawing) {
+                    this.currentBox.width = pos.x - this.startX;
+                    this.currentBox.height = pos.y - this.startY;
+                    this.drawCanvas();
+                } else {
+                    // Update cursor based on what's under mouse
+                    this.updateCursor(pos.x, pos.y);
+                }
+            }
+
+            onMouseUp() {
+                if (this.isDrawing && this.currentBox) {
+                    // Only add box if it has meaningful size
+                    if (Math.abs(this.currentBox.width) > 10 && Math.abs(this.currentBox.height) > 10) {
+                        const box = {
+                            left: Math.min(this.startX, this.startX + this.currentBox.width),
+                            top: Math.min(this.startY, this.startY + this.currentBox.height),
+                            width: Math.abs(this.currentBox.width),
+                            height: Math.abs(this.currentBox.height),
+                            type: 'rect',
+                            stroke: '#ff0000',
+                            strokeWidth: 3,
+                            fill: 'rgba(255, 0, 0, 0.3)',
+                            saved: false
+                        };
+
+                        this.boxes.push(box);
+                        this.selectedBoxIndex = this.boxes.length - 1;
+                        document.getElementById('boxCount').textContent = this.boxes.length;
+                        this.updateSelectedBoxInfo();
+                    }
+                    this.currentBox = null;
+                }
+
+                this.isDrawing = false;
+                this.isDragging = false;
+                this.isResizing = false;
+                this.resizeHandle = null;
+                this.canvas.style.cursor = 'crosshair';
+                this.drawCanvas();
+            }
+
+            updateCursor(x, y) {
+                if (this.selectedBoxIndex >= 0) {
+                    const handle = this.getResizeHandle(x, y);
+                    if (handle) {
+                        this.canvas.style.cursor = handle.cursor;
+                        return;
+                    }
+                }
+
+                const boxIndex = this.getBoxAtPosition(x, y);
+                if (boxIndex >= 0) {
+                    this.canvas.style.cursor = 'pointer';
+                } else {
+                    this.canvas.style.cursor = 'crosshair';
+                }
+            }
+
+            getResizeHandle(x, y) {
+                if (this.selectedBoxIndex < 0) return null;
+
+                const box = this.boxes[this.selectedBoxIndex];
+                const handleSize = 8;
+                const tolerance = 5;
+
+                const handles = [
+                    { x: box.left, y: box.top, cursor: 'nw-resize', type: 'nw' },
+                    { x: box.left + box.width, y: box.top, cursor: 'ne-resize', type: 'ne' },
+                    { x: box.left, y: box.top + box.height, cursor: 'sw-resize', type: 'sw' },
+                    { x: box.left + box.width, y: box.top + box.height, cursor: 'se-resize', type: 'se' },
+                    { x: box.left + box.width / 2, y: box.top, cursor: 'n-resize', type: 'n' },
+                    { x: box.left + box.width / 2, y: box.top + box.height, cursor: 's-resize', type: 's' },
+                    { x: box.left, y: box.top + box.height / 2, cursor: 'w-resize', type: 'w' },
+                    { x: box.left + box.width, y: box.top + box.height / 2, cursor: 'e-resize', type: 'e' }
+                ];
+
+                for (let handle of handles) {
+                    if (Math.abs(x - handle.x) <= tolerance && Math.abs(y - handle.y) <= tolerance) {
+                        return handle;
+                    }
+                }
+                return null;
+            }
+
+            getBoxAtPosition(x, y) {
+                for (let i = this.boxes.length - 1; i >= 0; i--) {
+                    const box = this.boxes[i];
+                    if (x >= box.left && x <= box.left + box.width &&
+                        y >= box.top && y <= box.top + box.height) {
+                        return i;
+                    }
+                }
+                return -1;
+            }
+
+            resizeBox(x, y) {
+                if (this.selectedBoxIndex < 0 || !this.resizeHandle) return;
+
+                const box = this.boxes[this.selectedBoxIndex];
+                const handle = this.resizeHandle;
+
+                switch (handle.type) {
+                    case 'nw':
+                        const newWidth = box.width + (box.left - x);
+                        const newHeight = box.height + (box.top - y);
+                        if (newWidth > 10 && newHeight > 10) {
+                            box.width = newWidth;
+                            box.height = newHeight;
+                            box.left = x;
+                            box.top = y;
+                        }
+                        break;
+                    case 'ne':
+                        const neWidth = x - box.left;
+                        const neHeight = box.height + (box.top - y);
+                        if (neWidth > 10 && neHeight > 10) {
+                            box.width = neWidth;
+                            box.height = neHeight;
+                            box.top = y;
+                        }
+                        break;
+                    case 'sw':
+                        const swWidth = box.width + (box.left - x);
+                        const swHeight = y - box.top;
+                        if (swWidth > 10 && swHeight > 10) {
+                            box.width = swWidth;
+                            box.height = swHeight;
+                            box.left = x;
+                        }
+                        break;
+                    case 'se':
+                        const seWidth = x - box.left;
+                        const seHeight = y - box.top;
+                        if (seWidth > 10 && seHeight > 10) {
+                            box.width = seWidth;
+                            box.height = seHeight;
+                        }
+                        break;
+                    case 'n':
+                        const nHeight = box.height + (box.top - y);
+                        if (nHeight > 10) {
+                            box.height = nHeight;
+                            box.top = y;
+                        }
+                        break;
+                    case 's':
+                        const sHeight = y - box.top;
+                        if (sHeight > 10) {
+                            box.height = sHeight;
+                        }
+                        break;
+                    case 'w':
+                        const wWidth = box.width + (box.left - x);
+                        if (wWidth > 10) {
+                            box.width = wWidth;
+                            box.left = x;
+                        }
+                        break;
+                    case 'e':
+                        const eWidth = x - box.left;
+                        if (eWidth > 10) {
+                            box.width = eWidth;
+                        }
+                        break;
+                }
+
+                box.saved = false;
+                this.updateSelectedBoxInfo();
+            }
+
+            moveBox(boxIndex, deltaX, deltaY) {
+                if (boxIndex < 0 || boxIndex >= this.boxes.length) return;
+
+                const box = this.boxes[boxIndex];
+                box.left += deltaX;
+                box.top += deltaY;
+
+                // Keep box within canvas bounds
+                box.left = Math.max(0, Math.min(this.canvas.width - box.width, box.left));
+                box.top = Math.max(0, Math.min(this.canvas.height - box.height, box.top));
+
+                box.saved = false;
+                this.updateSelectedBoxInfo();
+            }
+
+            // Modified onKeyDown method with new resize functionality
+            onKeyDown(e) {
+                if (!this.currentImage || this.selectedBoxIndex < 0) return;
+
+                const resizeDistance = 5; // Fixed resize distance
+                const moveDistance = e.shiftKey ? 10 : 1;
+
+                if (e.shiftKey) {
+                    // Shift + arrow keys for resizing
+                    switch (e.key) {
+                        case 'ArrowLeft':
+                            e.preventDefault();
+                            this.resizeSelectedBox(-resizeDistance, 0);
+                            break;
+                        case 'ArrowRight':
+                            e.preventDefault();
+                            this.resizeSelectedBox(resizeDistance, 0);
+                            break;
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            this.resizeSelectedBox(0, -resizeDistance);
+                            break;
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            this.resizeSelectedBox(0, resizeDistance);
+                            break;
+                    }
+                } else {
+                    // Regular arrow keys for moving
+                switch (e.key) {
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        this.moveBox(this.selectedBoxIndex, -moveDistance, 0);
+                        this.drawCanvas();
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        this.moveBox(this.selectedBoxIndex, moveDistance, 0);
+                        this.drawCanvas();
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        this.moveBox(this.selectedBoxIndex, 0, -moveDistance);
+                        this.drawCanvas();
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        this.moveBox(this.selectedBoxIndex, 0, moveDistance);
+                        this.drawCanvas();
+                        break;
+                    }
+                }
+
+                // Other key handlers
+                switch (e.key) {
+                    case 'Delete':
+                    case 'Backspace':
+                        e.preventDefault();
+                        this.deleteSelectedBox();
+                        break;
+                    case 'Escape':
+                        e.preventDefault();
+                        this.selectedBoxIndex = -1;
+                        this.updateSelectedBoxInfo();
+                        this.drawCanvas();
+                        break;
+                }
+            }
+
+            // New method to resize selected box
+            resizeSelectedBox(deltaWidth, deltaHeight) {
+                if (this.selectedBoxIndex < 0) return;
+
+                const box = this.boxes[this.selectedBoxIndex];
+                
+                // Calculate new dimensions
+                const newWidth = box.width + deltaWidth;
+                const newHeight = box.height + deltaHeight;
+
+                // Only resize if the new dimensions are reasonable (minimum 10px)
+                if (newWidth >= 10) {
+                    box.width = newWidth;
+                    // Keep box within canvas bounds
+                    if (box.left + box.width > this.canvas.width) {
+                        box.left = this.canvas.width - box.width;
+                    }
+                }
+
+                if (newHeight >= 10) {
+                    box.height = newHeight;
+                    // Keep box within canvas bounds
+                    if (box.top + box.height > this.canvas.height) {
+                        box.top = this.canvas.height - box.height;
+                    }
+                }
+
+                box.saved = false;
+                this.updateSelectedBoxInfo();
+                this.drawCanvas();
+            }
+
+            deleteSelectedBox() {
+                if (this.selectedBoxIndex >= 0) {
+                    this.boxes.splice(this.selectedBoxIndex, 1);
+                    this.selectedBoxIndex = -1;
+                    document.getElementById('boxCount').textContent = this.boxes.length;
+                    this.updateSelectedBoxInfo();
+                    this.drawCanvas();
+                    // this.showAlert('Box deleted', 'info');
+                }
+            }
+
+            updateSelectedBoxInfo() {
+                const selectedBoxInfo = document.getElementById('selectedBoxInfo');
+                if (this.selectedBoxIndex >= 0) {
+                    const box = this.boxes[this.selectedBoxIndex];
+                    selectedBoxInfo.textContent = `#${this.selectedBoxIndex + 1} (${Math.round(box.left)}, ${Math.round(box.top)}, ${Math.round(box.width)}×${Math.round(box.height)})`;
+                } else {
+                    selectedBoxInfo.textContent = 'None';
+                }
+            }
+
+            getMousePos(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const scaleX = this.canvas.width / rect.width;
+                const scaleY = this.canvas.height / rect.height;
+
+                return {
+                    x: (e.clientX - rect.left) * scaleX,
+                    y: (e.clientY - rect.top) * scaleY
+                };
+            }
+
+            async saveAnnotations() {
+                if (!this.currentImage || this.boxes.length === 0) {
+                    this.showAlert('No annotations to save', 'info');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/annotate/annotations', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            boxes: this.boxes.map(box => ({
+                                ...box,
+                                saved: true
+                            })),
+                            image_name: this.currentImage,
+                            original_width: this.originalWidth,
+                            original_height: this.originalHeight
+                        })
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        this.boxes.forEach(box => box.saved = true);
+                        this.drawCanvas();
+                        this.showAlert(result.message, 'success');
+                        this.loadImages(); // Refresh image list to update progress
+                    } else {
+                        throw new Error('Failed to save annotations');
+                    }
+                } catch (error) {
+                    this.showAlert('Error saving annotations: ' + error.message, 'error');
+                }
+            }
+
+            undoLastBox() {
+                if (this.boxes.length > 0) {
+                    this.boxes.pop();
+                    this.selectedBoxIndex = -1;
+                    document.getElementById('boxCount').textContent = this.boxes.length;
+                    this.updateSelectedBoxInfo();
+                    this.drawCanvas();
+                    this.showAlert('Last box removed', 'info');
+                } else {
+                    this.showAlert('No boxes to undo', 'info');
+                }
+            }
+
+            async clearAllBoxes() {
+                if (!this.currentImage) return;
+
+                if (confirm('Are you sure you want to clear all boxes and delete the annotation file?')) {
+                    try {
+                        // Delete annotations from server
+                        await fetch(`/api/annotate/annotations/${encodeURIComponent(this.currentImage)}`, {
+                            method: 'DELETE'
+                        });
+
+                        this.boxes = [];
+                        this.selectedBoxIndex = -1;
+                        document.getElementById('boxCount').textContent = '0';
+                        this.updateSelectedBoxInfo();
+                        this.drawCanvas();
+                        this.showAlert('All boxes cleared', 'success');
+                        this.loadImages(); // Refresh progress
+                    } catch (error) {
+                        this.showAlert('Error clearing annotations: ' + error.message, 'error');
+                    }
+                }
+            }
+
+            async reloadAnnotations() {
+                if (!this.currentImage) return;
+
+                try {
+                    const response = await fetch(`/api/annotate/annotations/${encodeURIComponent(this.currentImage)}`);
+                    const data = await response.json();
+
+                    this.boxes = (data.boxes || []).map(box => ({
+                        ...box,
+                        saved: true
+                    }));
+                    this.selectedBoxIndex = -1;
+                    document.getElementById('boxCount').textContent = this.boxes.length;
+                    this.updateSelectedBoxInfo();
+                    this.drawCanvas();
+                    this.showAlert('Annotations reloaded from file', 'success');
+                } catch (error) {
+                    this.showAlert('Error reloading annotations: ' + error.message, 'error');
+                }
+            }
+
+            downloadAnnotations() {
+                if (!this.currentImage) return;
+
+                const link = document.createElement('a');
+                link.href = `//annotate/annotations/${encodeURIComponent(this.currentImage)}/download`;
+                link.download = `${this.currentImage.split('.')[0]}.txt`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            async uploadImage(file) {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const response = await fetch('/api/annotate/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        this.showAlert(result.message, 'success');
+                        await this.loadImages();
+
+                        // Auto-select the uploaded image
+                        const index = this.images.findIndex(img => img.name === file.name);
+                        if (index >= 0) {
+                            this.currentImageIndex = index;
+                            document.getElementById('imageSelect').value = file.name;
+                            this.loadImage(file.name);
+                        }
+                    } else {
+                        throw new Error('Upload failed');
+                    }
+                } catch (error) {
+                    this.showAlert('Error uploading image: ' + error.message, 'error');
+                }
+
+                // Reset file input
+                document.getElementById('uploadFile').value = '';
+            }
+
+            showAlert(message, type) {
+                const alertsContainer = document.getElementById('alerts');
+                const alert = document.createElement('div');
+                alert.className = `alert alert-${type}`;
+                alert.textContent = message;
+
+                alertsContainer.appendChild(alert);
+
+                // Auto-remove alert after 5 seconds
+                setTimeout(() => {
+                    if (alert.parentNode) {
+                        alert.parentNode.removeChild(alert);
+                    }
+                }, 5000);
+            }
+        }
+
+        // Initialize the application when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new ComicAnnotator();
+        });
+    </script>
+</body>
+
+</html>

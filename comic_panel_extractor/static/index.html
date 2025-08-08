@@ -418,7 +418,7 @@
             loading.style.display = 'block';
             results.style.display = 'none';
 
-            fetch('/convert', {
+            fetch('/api/extract/convert', {
                 method: 'POST',
                 body: formData
             })
