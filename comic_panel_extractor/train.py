@@ -119,7 +119,7 @@ def main():
         
         # Backup best weights
         weights_path = yolo_manager.get_best_weights_path()
-        backup_path = f'{Config.YOLO_MODEL_NAME}.pt'
+        backup_path = f'{Config.current_path}/{Config.YOLO_MODEL_NAME}.pt'
         backup_file(weights_path, backup_path)
         
         print("🎉 Training completed successfully!")

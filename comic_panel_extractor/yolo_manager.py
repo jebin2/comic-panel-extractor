@@ -135,7 +135,7 @@ class YOLOManager:
     def get_best_weights_path(self, run_name: Optional[str] = None) -> str:
         """Get path to best trained weights."""
         run_name = run_name or self.model_name
-        weights_path = os.path.join('runs', 'detect', run_name, 'weights', 'best.pt')
+        weights_path = os.path.join(Config.current_path, 'runs', 'detect', run_name, 'weights', 'best.pt')
         
         if not os.path.isfile(weights_path):
             raise FileNotFoundError(f"❌ Trained weights not found at: {weights_path}")
