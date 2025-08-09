@@ -1397,31 +1397,11 @@
             updatePolygonCursor(x, y) {
                 if (this.selectedBoxIndex >= 0 && this.annotations[this.selectedBoxIndex].type === 'segmentation') {
                     const handle = this.getResizeHandle(x, y);
-                    // Check for edge handles first
-                    const edgeHandleIndex = this.getEdgeHandleAtPosition(x, y);
-                    if (edgeHandleIndex >= 0) {
-                        this.canvas.style.cursor = handle.cursor;
-                        return;
-                    }
-
-                    const pointIndex = this.getPolygonPointAtPosition(x, y);
-                    if (pointIndex >= 0) {
-                        this.canvas.style.cursor = handle.cursor;
-                        return;
-                    }
-
-                    const edgeIndex = this.getPolygonEdgeAtPosition(x, y);
-                    if (edgeIndex >= 0) {
-                        this.canvas.style.cursor = 'pointer';
-                        return;
-                    }
-
-                    if (this.isPointInPolygon(x, y, this.annotations[this.selectedBoxIndex].points)) {
-                        this.canvas.style.cursor = handle.cursor;
-                        return;
-                    }
+                    this.canvas.style.cursor = handle.cursor;
+                    return;
                 }
 
+                // Check for unselected polygons
                 const polygonIndex = this.getPolygonAtPosition(x, y);
                 if (polygonIndex >= 0) {
                     this.canvas.style.cursor = 'pointer';
@@ -1429,6 +1409,7 @@
                     this.canvas.style.cursor = 'crosshair';
                 }
             }
+
 
             updateCursor(x, y) {
                 if (this.selectedBoxIndex >= 0) {
@@ -1450,7 +1431,37 @@
             getResizeHandle(x, y) {
                 if (this.selectedBoxIndex < 0) return { cursor: 'move' };
 
-                const box = this.annotations[this.selectedBoxIndex];
+                const annotation = this.annotations[this.selectedBoxIndex];
+
+                // Handle polygon cursor logic with directional resize cursors
+                if (annotation.type === 'segmentation') {
+                    const tolerance = 8;
+
+                    // Check for corner points with directional resize cursors
+                    const pointIndex = this.getPolygonPointAtPosition(x, y, tolerance);
+                    if (pointIndex >= 0) {
+                        const resizeCursor = this.getPolygonCornerResizeCursor(pointIndex, annotation.points);
+                        return { cursor: resizeCursor, type: 'point', index: pointIndex };
+                    }
+
+                    // Check for edges with directional resize cursors
+                    const edgeIndex = this.getPolygonEdgeAtPosition(x, y, 5);
+                    if (edgeIndex >= 0) {
+                        const edgeResizeCursor = this.getPolygonEdgeResizeCursor(edgeIndex, annotation.points);
+                        return { cursor: edgeResizeCursor, type: 'edge', index: edgeIndex };
+                    }
+
+                    // Check if inside polygon (for moving entire polygon)
+                    if (this.isPointInPolygon(x, y, annotation.points)) {
+                        return { cursor: 'move', type: 'polygon-interior' };
+                    }
+
+                    // Default cursor for segmentation mode
+                    return { cursor: 'crosshair', type: 'default' };
+                }
+
+                // Original bbox logic remains the same
+                const box = annotation;
                 const handleSize = 8;
                 const tolerance = 5;
 
@@ -1472,6 +1483,77 @@
                 }
                 return { cursor: 'move' };
             }
+
+            getPolygonCornerResizeCursor(pointIndex, points) {
+                if (points.length < 3) return 'move';
+
+                // Calculate polygon bounding box
+                const bounds = this.getPolygonBounds(points);
+                const currentPoint = points[pointIndex];
+
+                // Determine position relative to bounding box center
+                const centerX = bounds.left + bounds.width / 2;
+                const centerY = bounds.top + bounds.height / 2;
+
+                const isLeft = currentPoint.x < centerX;
+                const isRight = currentPoint.x > centerX;
+                const isTop = currentPoint.y < centerY;
+                const isBottom = currentPoint.y > centerY;
+
+                // Return appropriate resize cursor
+                if (isTop && isLeft) return 'nw-resize';
+                if (isTop && isRight) return 'ne-resize';
+                if (isBottom && isLeft) return 'sw-resize';
+                if (isBottom && isRight) return 'se-resize';
+                if (isTop) return 'n-resize';
+                if (isBottom) return 's-resize';
+                if (isLeft) return 'w-resize';
+                if (isRight) return 'e-resize';
+
+                return 'move'; // Center point or fallback
+            }
+            getPolygonBounds(points) {
+                if (points.length === 0) return { left: 0, top: 0, width: 0, height: 0 };
+
+                let minX = points[0].x, maxX = points[0].x;
+                let minY = points[0].y, maxY = points[0].y;
+
+                for (let i = 1; i < points.length; i++) {
+                    minX = Math.min(minX, points[i].x);
+                    maxX = Math.max(maxX, points[i].x);
+                    minY = Math.min(minY, points[i].y);
+                    maxY = Math.max(maxY, points[i].y);
+                }
+
+                return {
+                    left: minX,
+                    top: minY,
+                    width: maxX - minX,
+                    height: maxY - minY
+                };
+            }
+
+            getPolygonEdgeResizeCursor(edgeIndex, points) {
+                if (points.length < 2) return 'move';
+
+                // Get the two points that form this edge
+                const point1 = points[edgeIndex];
+                const point2 = points[(edgeIndex + 1) % points.length];
+
+                // Calculate edge direction
+                const deltaX = Math.abs(point2.x - point1.x);
+                const deltaY = Math.abs(point2.y - point1.y);
+
+                // Determine if edge is more horizontal or vertical
+                if (deltaX > deltaY) {
+                    // More horizontal edge - allow vertical resizing
+                    return 'ns-resize';
+                } else {
+                    // More vertical edge - allow horizontal resizing
+                    return 'ew-resize';
+                }
+            }
+
 
             getBoxAtPosition(x, y) {
                 for (let i = this.annotations.length - 1; i >= 0; i--) {
