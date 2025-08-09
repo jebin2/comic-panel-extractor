@@ -3,9 +3,9 @@ import os
 import shutil
 from glob import glob
 from typing import List, Union
-from dotenv import load_dotenv
 
-load_dotenv()
+os.environ["TORCH_USE_CUDA_DSA"] = "1"
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 def get_abs_path(relative_path: str) -> str:
     """Convert relative path to absolute path."""

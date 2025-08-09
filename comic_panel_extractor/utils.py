@@ -7,8 +7,6 @@ import os
 import shutil
 from glob import glob
 from typing import List, Union
-from dotenv import load_dotenv
-load_dotenv()
 from .config import Config
 
 def remove_duplicate_boxes(boxes, compare_single=None, iou_threshold=0.7):
