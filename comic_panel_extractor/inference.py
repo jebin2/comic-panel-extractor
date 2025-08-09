@@ -1,6 +1,6 @@
 # inference.py
-from yolo_manager import YOLOManager
-from utils import get_abs_path, get_image_paths
+from .yolo_manager import YOLOManager
+from .utils import get_abs_path, get_image_paths
 import os
 from .config import Config
 
@@ -50,5 +50,24 @@ def main():
     
     run_inference(weights_path, images_dirs, './temp_dir')
 
+def annotate_all_image():
+    with YOLOManager() as yolo_manager:
+        weights_path = Config.yolo_trained_model_path
+        yolo_manager.load_model(weights_path)
+        IMAGE_ROOT = os.path.join(Config.current_path, "dataset/images")
+        IMAGE_LABEL_ROOT = os.path.join(Config.current_path, "image_labels")
+        for root, _, files in os.walk(IMAGE_ROOT):
+            for file in sorted(files):
+                if file.lower().endswith((".jpg", ".jpeg", ".png")):
+                    name, ext = os.path.splitext(file)
+                    save_txt_path = os.path.join(IMAGE_LABEL_ROOT, f'{name}.txt')  # YOLO label txt
+                    if not os.path.exists(save_txt_path):
+                        image_path = os.path.join(root, file)
+                        yolo_manager.annotate_images(
+                            image_paths=[image_path],
+                            output_dir=IMAGE_LABEL_ROOT,
+                            save_image=False
+                        )
+
 if __name__ == "__main__":
-    main()
+    annotate_all_image()
