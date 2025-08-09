@@ -453,6 +453,46 @@
                 height: calc(100vh - 372px);
             }
         }
+
+        .form-input-sm {
+            padding: 4px 6px;
+            font-size: 11px;
+            height: auto;
+        }
+
+        .point-edit-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 4px;
+            padding: 4px;
+            background: #f8fafc;
+            border-radius: 4px;
+        }
+
+        .point-edit-input {
+            flex: 1;
+            padding: 2px 4px;
+            font-size: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 3px;
+            width: 50px;
+        }
+
+        .point-delete-btn {
+            background: #f56565;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 2px 6px;
+            font-size: 10px;
+            cursor: pointer;
+            min-width: 20px;
+        }
+
+        .point-delete-btn:hover {
+            background: #e53e3e;
+        }
     </style>
 </head>
 
@@ -554,7 +594,73 @@
                         <span class="info-value" id="selectedBoxInfo">None</span>
                     </div>
                 </div>
+
+                <!-- Enhanced Edit Panel for Selected Annotation -->
+                <div id="annotationEditPanel" style="display: none; margin-top: 16px;">
+                    <div class="section-title">Edit Selected</div>
+                    <div class="info-card">
+                        <div class="form-field" style="margin-bottom: 12px;">
+                            <label class="form-label">Type</label>
+                            <span class="info-value" id="editType">-</span>
+                        </div>
+
+                        <div class="form-field" style="margin-bottom: 12px;">
+                            <label class="form-label">Class ID</label>
+                            <input type="number" class="form-input form-input-sm" id="editClassId" min="0" max="100"
+                                style="padding: 6px 8px; font-size: 12px;">
+                        </div>
+
+                        <!-- Bbox-specific controls -->
+                        <div id="bboxEditControls" style="display: none;">
+                            <div class="form-field" style="margin-bottom: 8px;">
+                                <label class="form-label">Position (X, Y)</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="number" class="form-input form-input-sm" id="editLeft" min="0"
+                                        style="flex: 1; padding: 4px 6px; font-size: 11px;">
+                                    <input type="number" class="form-input form-input-sm" id="editTop" min="0"
+                                        style="flex: 1; padding: 4px 6px; font-size: 11px;">
+                                </div>
+                            </div>
+                            <div class="form-field" style="margin-bottom: 12px;">
+                                <label class="form-label">Size (W × H)</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="number" class="form-input form-input-sm" id="editWidth" min="10"
+                                        style="flex: 1; padding: 4px 6px; font-size: 11px;">
+                                    <input type="number" class="form-input form-input-sm" id="editHeight" min="10"
+                                        style="flex: 1; padding: 4px 6px; font-size: 11px;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Polygon-specific controls -->
+                        <div id="polygonEditControls" style="display: none;">
+                            <div class="form-field" style="margin-bottom: 8px;">
+                                <label class="form-label">Points (<span id="pointCount">0</span>)</label>
+                                <div id="pointsList" style="max-height: 120px; overflow-y: auto; 
+                                               border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px;">
+                                    <!-- Points will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                            <button class="btn btn-success btn-sm" id="applyEditBtn"
+                                style="flex: 1; padding: 6px 8px; font-size: 11px;">
+                                ✓ Apply
+                            </button>
+                            <button class="btn btn-secondary btn-sm" id="cancelEditBtn"
+                                style="flex: 1; padding: 6px 8px; font-size: 11px;">
+                                ✗ Cancel
+                            </button>
+                            <button class="btn btn-danger btn-sm" id="deleteEditBtn"
+                                style="padding: 6px 8px; font-size: 11px;">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
+
 
             <!-- Quick Actions -->
             <div class="sidebar-section">
@@ -719,6 +825,26 @@
 
                 // Keyboard events
                 document.addEventListener('keydown', (e) => this.onKeyDown(e));
+
+                // Edit panel buttons
+                document.getElementById('applyEditBtn').addEventListener('click', () => this.applyEdits());
+                document.getElementById('cancelEditBtn').addEventListener('click', () => this.cancelEdits());
+                document.getElementById('deleteEditBtn').addEventListener('click', () => this.deleteSelectedBox());
+
+                // Real-time bbox updates
+                document.getElementById('editLeft').addEventListener('input', () => this.updateBboxFromInputs());
+                document.getElementById('editTop').addEventListener('input', () => this.updateBboxFromInputs());
+                document.getElementById('editWidth').addEventListener('input', () => this.updateBboxFromInputs());
+                document.getElementById('editHeight').addEventListener('input', () => this.updateBboxFromInputs());
+
+                // Class ID real-time update
+                document.getElementById('editClassId').addEventListener('input', (e) => {
+                    if (this.selectedBoxIndex >= 0) {
+                        this.annotations[this.selectedBoxIndex].classId = parseInt(e.target.value) || 0;
+                        this.annotations[this.selectedBoxIndex].saved = false;
+                    }
+                });
+
 
                 // Make canvas focusable for keyboard events
                 this.canvas.tabIndex = 0;
@@ -1835,6 +1961,11 @@
                     this.drawCanvas();
                     return;
                 }
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.onDoubleClick()
+                    return;
+                }
                 if (!this.currentImage || this.selectedBoxIndex < 0) return;
 
                 const resizeDistance = 5; // Fixed resize distance
@@ -1972,15 +2103,195 @@
                 }
             }
 
+            // Enhanced updateSelectedBoxInfo method
             updateSelectedBoxInfo() {
                 const selectedBoxInfo = document.getElementById('selectedBoxInfo');
+                const editPanel = document.getElementById('annotationEditPanel');
+
                 if (this.selectedBoxIndex >= 0) {
-                    const box = this.annotations[this.selectedBoxIndex];
-                    selectedBoxInfo.textContent = `#${this.selectedBoxIndex + 1} (${Math.round(box.left)}, ${Math.round(box.top)}, ${Math.round(box.width)}×${Math.round(box.height)})`;
+                    const annotation = this.annotations[this.selectedBoxIndex];
+
+                    if (annotation.type === 'segmentation') {
+                        const bounds = this.getPolygonBounds(annotation.points);
+                        const pointCount = annotation.points.length;
+                        selectedBoxInfo.textContent = `#${this.selectedBoxIndex + 1} Polygon (${pointCount} points, ${Math.round(bounds.left)}, ${Math.round(bounds.top)}, ${Math.round(bounds.width)}×${Math.round(bounds.height)})`;
+                    } else {
+                        selectedBoxInfo.textContent = `#${this.selectedBoxIndex + 1} BBox (${Math.round(annotation.left)}, ${Math.round(annotation.top)}, ${Math.round(annotation.width)}×${Math.round(annotation.height)})`;
+                    }
+
+                    // Show and populate edit panel
+                    this.showEditPanel(annotation);
+                    editPanel.style.display = 'block';
                 } else {
                     selectedBoxInfo.textContent = 'None';
+                    editPanel.style.display = 'none';
                 }
             }
+
+            // New method to show edit panel
+            showEditPanel(annotation) {
+                const editType = document.getElementById('editType');
+                const editClassId = document.getElementById('editClassId');
+                const bboxControls = document.getElementById('bboxEditControls');
+                const polygonControls = document.getElementById('polygonEditControls');
+
+                // Set common fields
+                editType.textContent = annotation.type === 'segmentation' ? 'Polygon' : 'Bounding Box';
+                editClassId.value = annotation.classId || 0;
+
+                if (annotation.type === 'bbox') {
+                    // Show bbox controls
+                    bboxControls.style.display = 'block';
+                    polygonControls.style.display = 'none';
+
+                    document.getElementById('editLeft').value = Math.round(annotation.left);
+                    document.getElementById('editTop').value = Math.round(annotation.top);
+                    document.getElementById('editWidth').value = Math.round(annotation.width);
+                    document.getElementById('editHeight').value = Math.round(annotation.height);
+
+                    // Set max values based on current position
+                    document.getElementById('editLeft').max = this.originalWidth - annotation.width;
+                    document.getElementById('editTop').max = this.originalHeight - annotation.height;
+                    document.getElementById('editWidth').max = this.originalWidth - annotation.left;
+                    document.getElementById('editHeight').max = this.originalHeight - annotation.top;
+                } else {
+                    // Show polygon controls
+                    bboxControls.style.display = 'none';
+                    polygonControls.style.display = 'block';
+
+                    this.populatePolygonPointsList(annotation.points);
+                }
+            }
+
+            // New method to populate polygon points list
+            populatePolygonPointsList(points) {
+                const pointsList = document.getElementById('pointsList');
+                const pointCount = document.getElementById('pointCount');
+
+                pointCount.textContent = points.length;
+                pointsList.innerHTML = '';
+
+                points.forEach((point, index) => {
+                    const row = document.createElement('div');
+                    row.className = 'point-edit-row';
+                    row.innerHTML = `
+            <span style="font-size: 10px; color: #4a5568; min-width: 15px;">${index + 1}:</span>
+            <input type="number" class="point-edit-input" value="${Math.round(point.x)}" 
+                   data-index="${index}" data-coord="x" min="0" max="${this.originalWidth}">
+            <input type="number" class="point-edit-input" value="${Math.round(point.y)}" 
+                   data-index="${index}" data-coord="y" min="0" max="${this.originalHeight}">
+            <button class="point-delete-btn" data-index="${index}" 
+                    ${points.length <= 3 ? 'disabled title="Cannot delete - minimum 3 points required"' : ''}>
+                ×
+            </button>
+        `;
+                    pointsList.appendChild(row);
+                });
+
+                // Add event listeners for point inputs
+                pointsList.querySelectorAll('.point-edit-input').forEach(input => {
+                    input.addEventListener('change', (e) => this.updatePolygonPoint(e));
+                });
+
+                // Add event listeners for delete buttons
+                pointsList.querySelectorAll('.point-delete-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => this.deletePolygonPoint(e));
+                });
+            }
+
+            // New method to update polygon point
+            updatePolygonPoint(e) {
+                const index = parseInt(e.target.dataset.index);
+                const coord = e.target.dataset.coord;
+                const value = parseInt(e.target.value);
+
+                if (this.selectedBoxIndex >= 0) {
+                    const annotation = this.annotations[this.selectedBoxIndex];
+                    if (annotation.type === 'segmentation' && annotation.points[index]) {
+                        annotation.points[index][coord] = Math.max(0,
+                            Math.min(coord === 'x' ? this.originalWidth : this.originalHeight, value));
+                        annotation.saved = false;
+                        this.drawCanvas();
+                    }
+                }
+            }
+
+            // New method to delete polygon point
+            deletePolygonPoint(e) {
+                const index = parseInt(e.target.dataset.index);
+
+                if (this.selectedBoxIndex >= 0) {
+                    const annotation = this.annotations[this.selectedBoxIndex];
+                    if (annotation.type === 'segmentation' && annotation.points.length > 3) {
+                        annotation.points.splice(index, 1);
+                        annotation.saved = false;
+                        this.populatePolygonPointsList(annotation.points);
+                        this.updateSelectedBoxInfo();
+                        this.drawCanvas();
+                    }
+                }
+            }
+
+            // Method to apply edits
+            applyEdits() {
+                if (this.selectedBoxIndex >= 0) {
+                    const annotation = this.annotations[this.selectedBoxIndex];
+                    const newClassId = parseInt(document.getElementById('editClassId').value) || 0;
+
+                    // Update class ID
+                    annotation.classId = newClassId;
+
+                    if (annotation.type === 'bbox') {
+                        // Update bbox properties
+                        const newLeft = parseInt(document.getElementById('editLeft').value);
+                        const newTop = parseInt(document.getElementById('editTop').value);
+                        const newWidth = parseInt(document.getElementById('editWidth').value);
+                        const newHeight = parseInt(document.getElementById('editHeight').value);
+
+                        // Apply boundary constraints
+                        annotation.left = Math.max(0, Math.min(this.originalWidth - newWidth, newLeft));
+                        annotation.top = Math.max(0, Math.min(this.originalHeight - newHeight, newTop));
+                        annotation.width = Math.max(10, Math.min(this.originalWidth - annotation.left, newWidth));
+                        annotation.height = Math.max(10, Math.min(this.originalHeight - annotation.top, newHeight));
+                    }
+
+                    annotation.saved = false;
+                    this.updateSelectedBoxInfo();
+                    this.drawCanvas();
+                    this.showAlert('Annotation updated', 'success');
+                }
+            }
+
+            // Method to cancel edits
+            cancelEdits() {
+                // Just refresh the edit panel with current values
+                if (this.selectedBoxIndex >= 0) {
+                    this.showEditPanel(this.annotations[this.selectedBoxIndex]);
+                }
+            }
+            // Method for real-time bbox updates
+            updateBboxFromInputs() {
+                if (this.selectedBoxIndex >= 0) {
+                    const annotation = this.annotations[this.selectedBoxIndex];
+                    if (annotation.type === 'bbox') {
+                        const newLeft = parseInt(document.getElementById('editLeft').value) || 0;
+                        const newTop = parseInt(document.getElementById('editTop').value) || 0;
+                        const newWidth = parseInt(document.getElementById('editWidth').value) || 10;
+                        const newHeight = parseInt(document.getElementById('editHeight').value) || 10;
+
+                        // Apply constraints and update
+                        annotation.left = Math.max(0, Math.min(this.originalWidth - newWidth, newLeft));
+                        annotation.top = Math.max(0, Math.min(this.originalHeight - newHeight, newTop));
+                        annotation.width = Math.max(10, Math.min(this.originalWidth - annotation.left, newWidth));
+                        annotation.height = Math.max(10, Math.min(this.originalHeight - annotation.top, newHeight));
+
+                        annotation.saved = false;
+                        this.drawCanvas();
+                    }
+                }
+            }
+
+
 
             getMousePos(e) {
                 const rect = this.canvas.getBoundingClientRect();
