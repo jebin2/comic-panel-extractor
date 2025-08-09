@@ -3,6 +3,7 @@ import os
 import shutil
 from glob import glob
 from typing import List, Union
+from . import utils
 
 os.environ["TORCH_USE_CUDA_DSA"] = "1"
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
@@ -106,7 +107,7 @@ class YOLOManager:
         train_params = {
             'data': data_yaml_path,
             'imgsz': Config.DEFAULT_IMAGE_SIZE,
-            'epochs': Config.YOLO_BASE_MODEL_NAME,
+            'epochs': Config.EPOCH,
             'batch': 10,
             'name': run_name,
             'device': device,
@@ -115,6 +116,7 @@ class YOLOManager:
             'exist_ok': True,
             'pose': False,
             'resume': resume_flag,
+            'save_period': 10,
             'amp': False,  # 🚫 Disable AMP to prevent yolo11n.pt download
         }
         

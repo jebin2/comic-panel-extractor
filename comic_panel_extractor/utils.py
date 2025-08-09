@@ -8,6 +8,7 @@ import shutil
 from glob import glob
 from typing import List, Union
 from .config import Config
+from shapely.geometry import Polygon
 
 def remove_duplicate_boxes(boxes, compare_single=None, iou_threshold=0.7):
 	"""
@@ -528,3 +529,112 @@ def backup_file(source_path: str, backup_path: str) -> str:
 	shutil.copy(source_path, backup_path)
 	print(f"✅ File backed up to: {backup_path}")
 	return backup_path
+
+def douglas_peucker_simplify(points, epsilon):
+	"""Simplify polygon using Douglas-Peucker algorithm"""
+	polygon = Polygon(points)
+	simplified = polygon.simplify(epsilon, preserve_topology=True)
+	return list(simplified.exterior.coords[:-1])  # Remove duplicate last point
+
+def filter_close_points(points, min_distance=5.0):
+	"""Remove points that are closer than min_distance to previous point"""
+	if len(points) < 2:
+		return points
+	
+	filtered = [points[0]]
+	
+	for i in range(1, len(points)):
+		current = np.array(points[i])
+		previous = np.array(filtered[-1])
+		distance = np.linalg.norm(current - previous)
+		
+		if distance >= min_distance:
+			filtered.append(points[i])
+	
+	return filtered
+
+def remove_thin_extensions_morphological(annotation_points, kernel_size=5):
+	"""Remove thin extensions using morphological operations"""
+	
+	# Convert points to image mask
+	points_array = np.array(annotation_points)
+	min_x, min_y = np.min(points_array, axis=0).astype(int)
+	max_x, max_y = np.max(points_array, axis=0).astype(int)
+	
+	# Create binary mask
+	mask = np.zeros((max_y - min_y + 20, max_x - min_x + 20), dtype=np.uint8)
+	
+	# Adjust points to mask coordinates
+	adjusted_points = points_array - [min_x - 10, min_y - 10]
+	adjusted_points = adjusted_points.astype(np.int32)
+	
+	# Fill polygon
+	cv2.fillPoly(mask, [adjusted_points], 255)
+	
+	# Morphological operations to remove thin extensions
+	kernel = np.ones((kernel_size, kernel_size), np.uint8)
+	
+	# Erosion removes thin parts
+	eroded = cv2.erode(mask, kernel, iterations=1)
+	
+	# Dilation restores the main body
+	cleaned = cv2.dilate(eroded, kernel, iterations=1)
+	
+	# Extract contour from cleaned mask
+	contours, _ = cv2.findContours(cleaned, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+	
+	if contours:
+		# Get the largest contour
+		largest_contour = max(contours, key=cv2.contourArea)
+		
+		# Convert back to original coordinate system
+		cleaned_points = largest_contour.reshape(-1, 2) + [min_x - 10, min_y - 10]
+		return cleaned_points.tolist()
+	
+	return annotation_points
+
+def str_format(points_list):
+	"""Convert points list to segmentation format string"""
+	# Points should be a list of tuples/lists [(x1, y1), (x2, y2), ...]
+	coords = []
+	for point in points_list:
+		coords.extend([point[0], point[1]])
+	
+	# Format as string with 6 decimal places
+	coords_str = ' '.join(f'{coord:.6f}' for coord in coords)
+	print(coords_str)
+	return coords_str
+
+
+def array_format(coords_str):
+	"""Convert segmentation format string to points list"""
+	# Parse coords_str to list of floats
+	coords = list(map(float, coords_str.split()))
+	
+	# Convert to list of points [(x1, y1), (x2, y2), ...]
+	points = [(coords[i], coords[i+1]) for i in range(0, len(coords), 2)]
+	print(points)
+	return points
+
+def normalize_segmentation(annotations, min_distance=8.0, epsilon=5.0, remove_extensions=True):
+	"""Complete normalization pipeline for segmentation points"""
+	processed_annotations = []
+
+	for annotation in annotations:
+		if annotation["type"] == "segmentation":
+			original_points = [(p["x"], p["y"]) for p in annotation["points"]]
+			# Step 1: Remove thin extensions first (if enabled)
+			normalized_points = remove_thin_extensions_morphological(original_points, kernel_size=7)
+			
+			# Step 2: Filter out points too close together
+			normalized_points = filter_close_points(normalized_points, min_distance)
+			
+			# Step 3: Apply Douglas-Peucker simplification
+			normalized_points = douglas_peucker_simplify(normalized_points, epsilon)
+			
+			# Update annotation with normalized points
+			annotation["points"] = [{"x": p[0], "y": p[1]} for p in normalized_points]
+		
+		processed_annotations.append(annotation)
+
+	return processed_annotations

@@ -9,6 +9,7 @@ from io import BytesIO
 import shutil
 from .config import Config
 from typing import List, Optional, Union, Dict, Any
+from . import utils
 
 app = APIRouter()
 
@@ -226,7 +227,7 @@ def parse_yolo_line(line: str, image_width: int, image_height: int) -> Dict[str,
 async def list_all_images():
     image_info_list = []
     for root, _, files in os.walk(IMAGE_ROOT):
-        for file in files:
+        for file in sorted(files):
             if file.lower().endswith((".jpg", ".jpeg", ".png")):
                 image_path = os.path.join(root, file)
                 rel_path = os.path.relpath(image_path, IMAGE_ROOT)
@@ -270,8 +271,9 @@ async def get_annotations(image_name: str):
         raise HTTPException(status_code=404, detail="Image not found")
 
     annotations, (width, height) = load_yolo_annotations(image_path, label_path)
+
     return {
-        "annotations": annotations,  # Changed from "boxes"
+        "annotations": utils.normalize_segmentation(annotations),
         "original_width": width,
         "original_height": height
     }
@@ -286,7 +288,7 @@ async def get_detected_annotations(image_name: str):
 
     annotations, (width, height) = load_yolo_annotations(image_path, label_path, True)
     return {
-        "annotations": annotations,
+        "annotations": utils.normalize_segmentation(annotations),
         "original_width": width,
         "original_height": height
     }

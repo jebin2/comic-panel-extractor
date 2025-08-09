@@ -16,16 +16,18 @@ class LLMPanelExtractor:
 		self.config = config or Config()
 
 		# Check if YOLO model exists; if not, download it to the specified path
-		if not os.path.exists(self.config.yolo_base_model_path):
+		yolo_base_model_path = f'{self.config.yolo_base_model_path}_best.pt'
+		# yolo_base_model_path = f'{self.config.yolo_trained_model_path}'
+		if not os.path.exists(yolo_base_model_path):
 			url = "https://huggingface.co/mosesb/best-comic-panel-detection/resolve/main/best.pt"
-			print(f"Downloading YOLO model to {self.config.yolo_base_model_path}...")
+			print(f"Downloading YOLO model to {yolo_base_model_path}...")
 			response = requests.get(url)
 			response.raise_for_status()  # Raise an error if the download fails
-			with open(self.config.yolo_base_model_path, "wb") as f:
+			with open(yolo_base_model_path, "wb") as f:
 				f.write(response.content)
 			print("YOLO model downloaded successfully.")
 
-		self.yolo_model = YOLO(self.config.yolo_base_model_path)
+		self.yolo_model = YOLO(yolo_base_model_path)
 		os.makedirs(self.config.output_folder, exist_ok=True)
 
 	def extract_bounding_boxes(self, detection_result_boxes):
@@ -109,7 +111,7 @@ class LLMPanelExtractor:
 					self.crop_and_save_detected_panels(newly_detected_boxes)
 					
 					# Save prediction visualization
-					visualization_result = first_detection_result.plot()
+					visualization_result = first_detection_result.plot(masks=False)
 					constant.INDEX += 1
 					debug_output_path = f"{self.config.output_folder}/{constant.INDEX:04d}_debug.jpg"
 					Image.fromarray(visualization_result[..., ::-1]).save(debug_output_path)

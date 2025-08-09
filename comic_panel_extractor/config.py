@@ -10,6 +10,7 @@ class Config:
 	org_input_path: str = ""
 	input_path: str = ""
 	current_path = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+	EPOCH = int(os.getenv('EPOCH', '200'))
 	YOLO_BASE_MODEL_NAME = os.getenv('YOLO_BASE_MODEL_NAME', 'yolo11s-seg')
 	yolo_base_model_path: str = f'{current_path}/{YOLO_BASE_MODEL_NAME}.pt'
 	YOLO_MODEL_NAME = f"{os.getenv('YOLO_MODEL_NAME', 'comic_panel')}_{YOLO_BASE_MODEL_NAME}"
