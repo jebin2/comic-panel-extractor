@@ -922,8 +922,53 @@
                 }
             }
 
+            resetAnnotationStates() {
+                // Reset selection
+                this.selectedBoxIndex = -1;
+
+                // Reset drawing states
+                this.isDrawing = false;
+                this.isDragging = false;
+                this.isResizing = false;
+                this.isDraggingEdge = false;
+                this.isDraggingPoint = false;
+
+                // Reset segmentation states
+                this.isDrawingPolygon = false;
+                this.polygonPoints = [];
+                this.currentPolygon = null;
+
+                // Reset bbox states
+                this.currentBox = null;
+                this.resizeHandle = null;
+
+                // Reset drag states
+                this.draggingEdgeIndex = -1;
+                this.draggingPointIndex = -1;
+                this.dragStartX = 0;
+                this.dragStartY = 0;
+                this.lastMouseX = 0;
+                this.lastMouseY = 0;
+
+                // Reset dynamic detection states
+                this.waitingForDrag = false;
+                this.initialClickPos = null;
+                this.clickStartTime = 0;
+
+                // Reset cursor
+                this.canvas.style.cursor = 'crosshair';
+
+                // Hide edit panel
+                const editPanel = document.getElementById('annotationEditPanel');
+                if (editPanel) {
+                    editPanel.style.display = 'none';
+                }
+            }
+
+
             async loadImage(imageName) {
                 try {
+                    this.resetAnnotationStates();
                     // Load image data
                     const imageResponse = await fetch(`/api/annotate/image/${encodeURIComponent(imageName)}`);
                     const imageData = await imageResponse.json();
