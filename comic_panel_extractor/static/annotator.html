@@ -655,6 +655,12 @@
                 this.edgeResizeTolerance = 8;
                 this.showEdgeHandles = true;
 
+                // Dynamic annotation detection
+                this.waitingForDrag = false;
+                this.initialClickPos = null;
+                this.clickStartTime = 0;
+                this.modeIndicatorTimeout = null;
+
                 this.init();
             }
 
@@ -851,6 +857,7 @@
                     if (index === this.selectedBoxIndex) {
                         strokeColor = '#0066ff';
                         fillColor = 'rgba(0, 102, 255, 0.3)';
+                        this.setAnnotationMode(annotation.type);
                     } else if (!annotation.saved) {
                         strokeColor = '#ff0000';
                         fillColor = 'rgba(255, 0, 0, 0.2)';
@@ -1160,9 +1167,12 @@
                 this.lastMouseY = pos.y;
                 const handle = this.getResizeHandle(pos.x, pos.y);
 
-                if (this.annotationMode === 'segmentation') {
-                    // Check if clicking on an edge handle of selected polygon
-                    if (this.selectedBoxIndex >= 0) {
+                // Check for existing annotation interactions first (both types)
+                if (this.selectedBoxIndex >= 0) {
+                    const annotation = this.annotations[this.selectedBoxIndex];
+
+                    if (annotation.type === 'segmentation') {
+                        // Handle segmentation interactions
                         const edgeHandleIndex = this.getEdgeHandleAtPosition(pos.x, pos.y);
                         if (edgeHandleIndex >= 0) {
                             this.isDraggingEdge = true;
@@ -1179,58 +1189,56 @@
                             return;
                         }
 
-                        // Check if clicking on an edge to add a point
                         const edgeIndex = this.getPolygonEdgeAtPosition(pos.x, pos.y);
                         if (edgeIndex >= 0 && e.ctrlKey) {
                             this.addPolygonPoint(this.selectedBoxIndex, edgeIndex, pos.x, pos.y);
                             this.drawCanvas();
                             return;
                         }
-                    }
+                    } else if (annotation.type === 'bbox') {
+                        // If clicking on a resize handle
+                        if (handle && handle.type !== 'default' && handle.type !== 'interior') {
+                            this.isResizing = true;
+                            this.resizeHandle = handle;
+                            this.canvas.style.cursor = handle.cursor;
+                            return;
+                        }
 
-                    // Check if clicking on a polygon
-                    const clickedPolygonIndex = this.getPolygonAtPosition(pos.x, pos.y);
-                    if (clickedPolygonIndex >= 0) {
-                        this.selectedBoxIndex = clickedPolygonIndex;
-                        this.isDragging = true;
-                        this.dragStartX = pos.x;
-                        this.dragStartY = pos.y;
-                        this.canvas.style.cursor = handle.cursor;
-                        this.updateSelectedBoxInfo();
-                        this.drawCanvas();
-                        return;
+                        // If clicking inside bbox (for moving)
+                        if (handle && handle.type === 'interior') {
+                            this.isDragging = true;
+                            this.dragStartX = pos.x;
+                            this.dragStartY = pos.y;
+                            this.canvas.style.cursor = 'move';
+                            this.updateSelectedBoxInfo();
+                            return;
+                        }
                     }
+                }
 
-                    // Start new polygon if not drawing one
-                    if (!this.isDrawingPolygon) {
-                        this.selectedBoxIndex = -1;
-                        this.isDrawingPolygon = true;
-                        this.polygonPoints = [pos];
-                        this.currentPolygon = {
-                            points: [...this.polygonPoints],
-                            classId: parseInt(document.getElementById('classId').value) || 0,
-                            saved: false
-                        };
-                    } else {
-                        // Add point to current polygon
-                        this.polygonPoints.push(pos);
-                        this.currentPolygon.points = [...this.polygonPoints];
-                    }
+                // IMPORTANT: Check if already drawing a polygon - add point to current polygon
+                if (this.annotationMode === 'segmentation' && this.isDrawingPolygon) {
+                    this.polygonPoints.push(pos);
+                    this.currentPolygon.points = [...this.polygonPoints];
                     this.drawCanvas();
                     return;
                 }
 
-                // Original bbox logic remains the same...
-                if (this.selectedBoxIndex >= 0) {
-                    if (handle) {
-                        this.isResizing = true;
-                        this.resizeHandle = handle;
-                        this.canvas.style.cursor = handle.cursor;
-                        return;
-                    }
+                // Check for clicking on existing annotations
+                const clickedPolygonIndex = this.getPolygonAtPosition(pos.x, pos.y);
+                const clickedBoxIndex = this.getBoxAtPosition(pos.x, pos.y);
+
+                if (clickedPolygonIndex >= 0) {
+                    this.selectedBoxIndex = clickedPolygonIndex;
+                    this.isDragging = true;
+                    this.dragStartX = pos.x;
+                    this.dragStartY = pos.y;
+                    this.canvas.style.cursor = handle.cursor;
+                    this.updateSelectedBoxInfo();
+                    this.drawCanvas();
+                    return;
                 }
 
-                const clickedBoxIndex = this.getBoxAtPosition(pos.x, pos.y);
                 if (clickedBoxIndex >= 0) {
                     this.selectedBoxIndex = clickedBoxIndex;
                     this.isDragging = true;
@@ -1242,12 +1250,92 @@
                     return;
                 }
 
+                // No existing annotation clicked - determine new annotation type
                 this.selectedBoxIndex = -1;
+                this.updateSelectedBoxInfo();
+
+                // DYNAMIC ANNOTATION TYPE DETECTION (only when not already drawing)
+                if (e.ctrlKey) {
+                    // Ctrl+Click always starts segmentation
+                    this.startSegmentation(pos);
+                } else if (e.shiftKey) {
+                    // Shift+Click always starts bbox
+                    this.startBboxDrawing(pos);
+                } else {
+                    // Default behavior: start with a click and wait for drag
+                    this.waitingForDrag = true;
+                    this.initialClickPos = pos;
+                    this.clickStartTime = Date.now();
+                }
+            }
+
+
+            startSegmentation(pos) {
+                this.setAnnotationMode('segmentation');
+                this.isDrawingPolygon = true;
+                this.polygonPoints = [pos];
+                this.currentPolygon = {
+                    points: [...this.polygonPoints],
+                    classId: parseInt(document.getElementById('classId').value) || 0,
+                    saved: false
+                };
+                this.drawCanvas();
+                this.showModeIndicator('Segmentation Mode', 'segmentation');
+            }
+
+            startBboxDrawing(pos) {
+                this.setAnnotationMode('bbox');
                 this.startX = pos.x;
                 this.startY = pos.y;
                 this.isDrawing = true;
                 this.currentBox = { left: this.startX, top: this.startY, width: 0, height: 0 };
-                this.updateSelectedBoxInfo();
+                this.showModeIndicator('Bounding Box Mode', 'bbox');
+            }
+
+            setAnnotationMode(mode) {
+                this.annotationMode = mode;
+                document.getElementById('annotationMode').value = mode;
+                this.updateCanvasCursor();
+            }
+
+            showModeIndicator(text, type) {
+                // Create or update mode indicator
+                let indicator = document.getElementById('modeIndicator');
+                if (!indicator) {
+                    indicator = document.createElement('div');
+                    indicator.id = 'modeIndicator';
+                    indicator.style.cssText = `
+            position: fixed;
+            top: 120px;
+            right: 20px;
+            z-index: 1001;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        `;
+                    document.body.appendChild(indicator);
+                }
+
+                const colors = {
+                    'segmentation': { bg: '#e6f3ff', color: '#0066cc', border: '#4299e1' },
+                    'bbox': { bg: '#f0fff4', color: '#22543d', border: '#48bb78' }
+                };
+
+                const color = colors[type] || colors.bbox;
+                indicator.style.background = color.bg;
+                indicator.style.color = color.color;
+                indicator.style.border = `1px solid ${color.border}`;
+                indicator.textContent = text;
+                indicator.style.opacity = '1';
+
+                // Auto-hide after 2 seconds
+                clearTimeout(this.modeIndicatorTimeout);
+                this.modeIndicatorTimeout = setTimeout(() => {
+                    indicator.style.opacity = '0';
+                }, 2000);
             }
 
             onDoubleClick(e) {
@@ -1283,23 +1371,51 @@
 
                 const pos = this.getMousePos(e);
 
+                // Handle dynamic annotation type detection
+                if (this.waitingForDrag && this.initialClickPos) {
+                    const dragDistance = Math.sqrt(
+                        Math.pow(pos.x - this.initialClickPos.x, 2) +
+                        Math.pow(pos.y - this.initialClickPos.y, 2)
+                    );
+
+                    const timeSinceClick = Date.now() - this.clickStartTime;
+
+                    // If dragging more than 10 pixels, assume bbox
+                    if (dragDistance > 10) {
+                        this.waitingForDrag = false;
+                        this.startBboxDrawing(this.initialClickPos);
+                        // Continue with bbox drawing
+                        this.currentBox.width = pos.x - this.startX;
+                        this.currentBox.height = pos.y - this.startY;
+                        this.drawCanvas();
+                        return;
+                    }
+
+                    // If holding click for more than 500ms without drag, assume segmentation
+                    if (timeSinceClick > 500) {
+                        this.waitingForDrag = false;
+                        this.startSegmentation(this.initialClickPos);
+                        return;
+                    }
+
+                    return; // Still waiting to determine type
+                }
+
+                // Rest of your existing mouse move logic...
                 if (this.annotationMode === 'segmentation') {
                     if (this.isDraggingEdge && this.selectedBoxIndex >= 0) {
-                        // Resize edge
                         this.resizePolygonEdge(this.selectedBoxIndex, this.draggingEdgeIndex, pos.x, pos.y);
                         this.drawCanvas();
                         return;
                     }
 
                     if (this.isDraggingPoint && this.selectedBoxIndex >= 0) {
-                        // Move individual point
                         this.movePolygonPoint(this.selectedBoxIndex, this.draggingPointIndex, pos.x, pos.y);
                         this.drawCanvas();
                         return;
                     }
 
                     if (this.isDragging && this.selectedBoxIndex >= 0) {
-                        // Move entire polygon
                         const deltaX = pos.x - this.lastMouseX;
                         const deltaY = pos.y - this.lastMouseY;
                         this.movePolygon(this.selectedBoxIndex, deltaX, deltaY);
@@ -1310,7 +1426,6 @@
                     }
 
                     if (this.isDrawingPolygon) {
-                        // Update current polygon preview
                         if (this.currentPolygon) {
                             this.currentPolygon.points = [...this.polygonPoints, pos];
                             this.drawCanvas();
@@ -1318,7 +1433,6 @@
                         return;
                     }
 
-                    // Update cursor based on what's under mouse
                     this.updatePolygonCursor(pos.x, pos.y);
                     return;
                 }
@@ -1343,7 +1457,17 @@
                 }
             }
 
+
             onMouseUp() {
+                // Handle waiting for drag detection
+                if (this.waitingForDrag) {
+                    this.waitingForDrag = false;
+                    // Short click without drag - default to segmentation
+                    this.startSegmentation(this.initialClickPos);
+                    return;
+                }
+
+                // Rest of your existing mouse up logic...
                 if (this.annotationMode === 'segmentation') {
                     this.isDraggingEdge = false;
                     this.draggingEdgeIndex = -1;
@@ -1394,6 +1518,7 @@
                 this.canvas.style.cursor = 'crosshair';
                 this.drawCanvas();
             }
+
             updatePolygonCursor(x, y) {
                 if (this.selectedBoxIndex >= 0 && this.annotations[this.selectedBoxIndex].type === 'segmentation') {
                     const handle = this.getResizeHandle(x, y);
@@ -1414,10 +1539,8 @@
             updateCursor(x, y) {
                 if (this.selectedBoxIndex >= 0) {
                     const handle = this.getResizeHandle(x, y);
-                    if (handle) {
-                        this.canvas.style.cursor = handle.cursor;
-                        return;
-                    }
+                    this.canvas.style.cursor = handle.cursor;
+                    return;
                 }
 
                 const boxIndex = this.getBoxAtPosition(x, y);
@@ -1481,7 +1604,13 @@
                         return handle;
                     }
                 }
-                return { cursor: 'move' };
+
+                // FIXED: Return proper object for interior clicks
+                if (x >= box.left && x <= box.left + box.width &&
+                    y >= box.top && y <= box.top + box.height) {
+                    return { cursor: 'move', type: 'interior' };
+                }
+                return { cursor: 'default', type: 'default' };
             }
 
             getPolygonCornerResizeCursor(pointIndex, points) {
