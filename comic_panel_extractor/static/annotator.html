@@ -473,7 +473,7 @@
         .point-edit-input {
             flex: 1;
             padding: 2px 4px;
-            font-size: 10px;
+            font-size: 15px;
             border: 1px solid #d1d5db;
             border-radius: 3px;
             width: 50px;
@@ -485,13 +485,32 @@
             border: none;
             border-radius: 3px;
             padding: 2px 6px;
-            font-size: 10px;
+            font-size: 15px;
             cursor: pointer;
             min-width: 20px;
         }
 
         .point-delete-btn:hover {
             background: #e53e3e;
+        }
+
+        /* Add to your existing CSS */
+        .point-highlighted {
+            background: rgba(255, 215, 0, 0.8) !important;
+            border: 3px solid #ff6b00 !important;
+            box-shadow: 0 0 10px rgba(255, 107, 0, 0.6) !important;
+        }
+
+        .point-edit-row.highlighted {
+            background: #fff3cd !important;
+            border: 2px solid #ffc107 !important;
+            border-radius: 6px !important;
+            box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3) !important;
+        }
+
+        .point-edit-input.highlighted {
+            border-color: #ffc107 !important;
+            background: #fff3cd !important;
         }
     </style>
 </head>
@@ -767,6 +786,9 @@
                 this.clickStartTime = 0;
                 this.modeIndicatorTimeout = null;
 
+                // Add this new property for point highlighting
+                this.highlightedPointIndex = -1;
+
                 this.init();
             }
 
@@ -954,6 +976,7 @@
                 this.waitingForDrag = false;
                 this.initialClickPos = null;
                 this.clickStartTime = 0;
+                this.highlightedPointIndex = -1;
 
                 // Reset cursor
                 this.canvas.style.cursor = 'crosshair';
@@ -1076,36 +1099,74 @@
                 }
                 this.ctx.stroke();
 
-                // Draw corner points as squares (like bbox handles) - ONLY at intersecting points
+                // Draw corner points as squares
                 const handleSize = isSelected ? 10 : 6;
                 points.forEach((point, index) => {
-                    this.ctx.fillStyle = isSelected ? '#0066ff' : strokeColor;
+                    // Check if this point should be highlighted
+                    const isHighlighted = isSelected && this.highlightedPointIndex === index;
 
-                    // Draw square handle centered on the point
-                    this.ctx.fillRect(
-                        point.x - handleSize / 2,
-                        point.y - handleSize / 2,
-                        handleSize,
-                        handleSize
-                    );
+                    if (isHighlighted) {
+                        // Draw highlighted point with special styling
+                        this.ctx.fillStyle = '#FFD700'; // Gold color
+                        this.ctx.strokeStyle = '#FF6B00'; // Orange border
+                        this.ctx.lineWidth = 3;
 
-                    if (isSelected) {
+                        // Draw larger, more visible handle
+                        const highlightSize = handleSize + 6;
+                        this.ctx.fillRect(
+                            point.x - highlightSize / 2,
+                            point.y - highlightSize / 2,
+                            highlightSize,
+                            highlightSize
+                        );
+                        this.ctx.strokeRect(
+                            point.x - highlightSize / 2,
+                            point.y - highlightSize / 2,
+                            highlightSize,
+                            highlightSize
+                        );
+
+                        // Add pulsing glow effect
+                        this.ctx.shadowColor = '#FF6B00';
+                        this.ctx.shadowBlur = 10;
+                        this.ctx.strokeRect(
+                            point.x - highlightSize / 2,
+                            point.y - highlightSize / 2,
+                            highlightSize,
+                            highlightSize
+                        );
+                        this.ctx.shadowBlur = 0; // Reset shadow
+
+                    } else {
+                        // Draw normal point
+                        this.ctx.fillStyle = isSelected ? '#0066ff' : strokeColor;
                         this.ctx.strokeStyle = '#ffffff';
                         this.ctx.lineWidth = 2;
-                        this.ctx.strokeRect(
+
+                        this.ctx.fillRect(
                             point.x - handleSize / 2,
                             point.y - handleSize / 2,
                             handleSize,
                             handleSize
                         );
+
+                        if (isSelected) {
+                            this.ctx.strokeRect(
+                                point.x - handleSize / 2,
+                                point.y - handleSize / 2,
+                                handleSize,
+                                handleSize
+                            );
+                        }
                     }
                 });
 
-                // Draw edge handles for selected polygon (these are the midpoint handles)
+                // Draw edge handles for selected polygon (existing code)
                 if (isSelected && points.length > 2 && this.showEdgeHandles) {
                     this.drawEdgeHandles(points);
                 }
             }
+
 
 
             drawEdgeHandles(points) {
@@ -2065,7 +2126,7 @@
                 // Other key handlers
                 switch (e.key) {
                     case 'Delete':
-                    case 'Backspace':
+                    // case 'Backspace':
                         e.preventDefault();
                         this.deleteSelectedBox();
                         break;
@@ -2209,6 +2270,7 @@
             }
 
             // New method to populate polygon points list
+            // Enhanced method to populate polygon points list with hover highlighting
             populatePolygonPointsList(points) {
                 const pointsList = document.getElementById('pointsList');
                 const pointCount = document.getElementById('pointCount');
@@ -2219,8 +2281,9 @@
                 points.forEach((point, index) => {
                     const row = document.createElement('div');
                     row.className = 'point-edit-row';
+                    row.setAttribute('data-point-index', index);
                     row.innerHTML = `
-            <span style="font-size: 10px; color: #4a5568; min-width: 15px;">${index + 1}:</span>
+            <span style="font-size: 15px; color: #4a5568; min-width: 15px;">${index + 1}:</span>
             <input type="number" class="point-edit-input" value="${Math.round(point.x)}" 
                    data-index="${index}" data-coord="x" min="0" max="${this.originalWidth}">
             <input type="number" class="point-edit-input" value="${Math.round(point.y)}" 
@@ -2236,13 +2299,89 @@
                 // Add event listeners for point inputs
                 pointsList.querySelectorAll('.point-edit-input').forEach(input => {
                     input.addEventListener('change', (e) => this.updatePolygonPoint(e));
+
+                    // Add hover event listeners for highlighting
+                    input.addEventListener('mouseenter', (e) => this.highlightPolygonPoint(e));
+                    input.addEventListener('mouseleave', (e) => this.unhighlightPolygonPoint(e));
+                    input.addEventListener('focus', (e) => this.highlightPolygonPoint(e));
+                    input.addEventListener('blur', (e) => this.unhighlightPolygonPoint(e));
                 });
 
                 // Add event listeners for delete buttons
                 pointsList.querySelectorAll('.point-delete-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => this.deletePolygonPoint(e));
+
+                    // Add hover event listeners for delete buttons
+                    btn.addEventListener('mouseenter', (e) => this.highlightPolygonPoint(e));
+                    btn.addEventListener('mouseleave', (e) => this.unhighlightPolygonPoint(e));
+                });
+
+                // Add hover listeners for entire rows
+                pointsList.querySelectorAll('.point-edit-row').forEach(row => {
+                    row.addEventListener('mouseenter', (e) => this.highlightPolygonPointByRow(e));
+                    row.addEventListener('mouseleave', (e) => this.unhighlightPolygonPointByRow(e));
                 });
             }
+            // Method to highlight a polygon point on canvas
+            highlightPolygonPoint(e) {
+                const index = parseInt(e.target.dataset.index);
+                if (this.selectedBoxIndex >= 0 && index >= 0) {
+                    this.highlightedPointIndex = index;
+
+                    // Highlight the row in sidebar
+                    const row = e.target.closest('.point-edit-row');
+                    if (row) {
+                        row.classList.add('highlighted');
+                        row.querySelectorAll('.point-edit-input').forEach(input => {
+                            input.classList.add('highlighted');
+                        });
+                    }
+
+                    this.drawCanvas();
+                }
+            }
+
+            // Method to unhighlight a polygon point
+            unhighlightPolygonPoint(e) {
+                this.highlightedPointIndex = -1;
+
+                // Remove highlight from sidebar row
+                const row = e.target.closest('.point-edit-row');
+                if (row) {
+                    row.classList.remove('highlighted');
+                    row.querySelectorAll('.point-edit-input').forEach(input => {
+                        input.classList.remove('highlighted');
+                    });
+                }
+
+                this.drawCanvas();
+            }
+
+            // Method to highlight by hovering over entire row
+            highlightPolygonPointByRow(e) {
+                const row = e.currentTarget;
+                const index = parseInt(row.dataset.pointIndex);
+                if (index >= 0) {
+                    this.highlightedPointIndex = index;
+                    row.classList.add('highlighted');
+                    row.querySelectorAll('.point-edit-input').forEach(input => {
+                        input.classList.add('highlighted');
+                    });
+                    this.drawCanvas();
+                }
+            }
+
+            // Method to unhighlight by leaving row
+            unhighlightPolygonPointByRow(e) {
+                const row = e.currentTarget;
+                this.highlightedPointIndex = -1;
+                row.classList.remove('highlighted');
+                row.querySelectorAll('.point-edit-input').forEach(input => {
+                    input.classList.remove('highlighted');
+                });
+                this.drawCanvas();
+            }
+
 
             // New method to update polygon point
             updatePolygonPoint(e) {
