@@ -150,6 +150,8 @@ class YOLOManager:
             image_paths: List of image file paths
             output_dir: Directory to save annotated images and labels
             image_size: Size for inference
+            save_image: Whether to save annotated images
+            label_path: Optional specific path for label file
         """
         if not self.model:
             raise ValueError("❌ No model loaded. Please load a model first.")
@@ -159,8 +161,8 @@ class YOLOManager:
         
         image_size = image_size or Config.DEFAULT_IMAGE_SIZE
         # clean_directory(output_dir)
-        totla_images = len(image_paths)
-        print(f"🎨 Annotating {totla_images} images and saving labels...")
+        total_images = len(image_paths)
+        print(f"🎨 Annotating {total_images} images and saving labels...")
         
         for idx, image_path in enumerate(image_paths):
             if not os.path.isfile(image_path):
@@ -176,7 +178,8 @@ class YOLOManager:
                 
                 # Run inference
                 results = self.model(image_path, imgsz=image_size)
-                annotated_frame = results[0].plot()
+                result = results[0]
+                annotated_frame = result.plot()
                 
                 # Prepare save paths
                 original_name = os.path.basename(image_path)
@@ -191,33 +194,64 @@ class YOLOManager:
 
                 # Write YOLO label file
                 with open(save_txt_path, 'w') as f:
-                    for box in results[0].boxes:
-                        # box.xyxy format: (xmin, ymin, xmax, ymax)
-                        xyxy = box.xyxy[0].tolist()
-                        cls_id = int(box.cls[0].item())  # class id
+                    # Check if we have segmentation masks (YOLO-seg model)
+                    if hasattr(result, 'masks') and result.masks is not None:
+                        print(f"📐 Processing segmentation masks...")
 
-                        xmin, ymin, xmax, ymax = xyxy
-                        # Convert to YOLO format (normalized)
-                        x_center = ((xmin + xmax) / 2) / w
-                        y_center = ((ymin + ymax) / 2) / h
-                        width = (xmax - xmin) / w
-                        height = (ymax - ymin) / h
+                        # Process segmentation masks
+                        masks = result.masks
+                        for i, mask in enumerate(masks.xy):  # masks.xy gives polygon coordinates
+                            cls_id = int(result.boxes.cls[i].item())
 
-                        # Write one line per object
-                        f.write(f"{cls_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}\n")
+                            # mask is already in pixel coordinates
+                            # Normalize coordinates to [0,1] range
+                            normalized_coords = []
+                            for point in mask:
+                                x_norm = point[0] / w
+                                y_norm = point[1] / h
+                                normalized_coords.extend([x_norm, y_norm])
+
+                            # Write segmentation format: class_id x1 y1 x2 y2 x3 y3 ...
+                            coords_str = ' '.join(f'{coord:.6f}' for coord in normalized_coords)
+                            f.write(f"{cls_id} {coords_str}\n")
+
+                    # Fallback to bounding boxes if no masks (YOLO detection model)
+                    elif hasattr(result, 'boxes') and result.boxes is not None:
+                        print(f"📦 Processing bounding boxes...")
+
+                        for box in result.boxes:
+                            # box.xyxy format: (xmin, ymin, xmax, ymax)
+                            xyxy = box.xyxy[0].tolist()
+                            cls_id = int(box.cls[0].item())
+
+                            xmin, ymin, xmax, ymax = xyxy
+                            # Convert to YOLO format (normalized)
+                            x_center = ((xmin + xmax) / 2) / w
+                            y_center = ((ymin + ymax) / 2) / h
+                            width = (xmax - xmin) / w
+                            height = (ymax - ymin) / h
+
+                            # Write bounding box format: class_id x_center y_center width height
+                            f.write(f"{cls_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}\n")
+
+                    else:
+                        print("⚠️ No detections found in this image")
 
                 if label_path:
                     shutil.copyfile(save_txt_path, label_path)
-                print(f'✅ Saved annotated image: {save_img_path}')
+
+                if save_img_path:
+                    print(f'✅ Saved annotated image: {save_img_path}')
                 print(f'✅ Saved label file: {save_txt_path}')
                 print(f"🎉 Annotation and label saving complete! Results saved to: {output_dir}")
 
-                if totla_images == 1:
+                if total_images == 1:
                     return save_img_path, save_txt_path
                 
             except Exception as e:
                 print(f"❌ Error processing {image_path}: {str(e)}")
-                return None, None
+                if total_images == 1:
+                    return None, None
 
     def __enter__(self):
         # When entering context, just return self
