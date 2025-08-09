@@ -41,7 +41,7 @@ def run_inference(weights_path: str, images_dirs, output_dir: str = 'temp_dir') 
 
 def main():
     """Main inference function."""
-    weights_path = f'{Config.YOLO_MODEL_NAME}.pt'
+    weights_path = Config.yolo_trained_model_path
     images_dirs = [
         './dataset/images/train',
         './dataset/images/val', 

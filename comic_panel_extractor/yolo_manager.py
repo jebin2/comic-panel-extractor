@@ -54,6 +54,8 @@ from ultralytics import YOLO
 from typing import List, Optional, Dict, Any
 from .utils import get_abs_path, clean_directory
 from .config import Config
+from dotenv import load_dotenv
+load_dotenv()
 
 class YOLOManager:
     """Manages YOLO model training and inference operations."""
@@ -68,8 +70,8 @@ class YOLOManager:
             print(f"📦 Loading model from: {weights_path}")
             self.model = YOLO(weights_path)
         else:
-            print("✨ Loading pretrained model 'yolov12s-seg.pt'")
-            self.model = YOLO(f"{Config.current_path}/yolov12s-seg.pt")
+            print(f"✨ Loading pretrained model '{Config.yolo_base_model_path}'")
+            self.model = YOLO(f"{Config.yolo_base_model_path}")
         return self.model
     
     def train(self, 
@@ -104,7 +106,7 @@ class YOLOManager:
         train_params = {
             'data': data_yaml_path,
             'imgsz': Config.DEFAULT_IMAGE_SIZE,
-            'epochs': 200,
+            'epochs': Config.YOLO_BASE_MODEL_NAME,
             'batch': 10,
             'name': run_name,
             'device': device,

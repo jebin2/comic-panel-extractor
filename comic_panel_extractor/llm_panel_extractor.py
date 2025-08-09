@@ -16,17 +16,16 @@ class LLMPanelExtractor:
 		self.config = config or Config()
 
 		# Check if YOLO model exists; if not, download it to the specified path
-		yolo_model_path = self.config.yolo_model_path
-		if not os.path.exists(yolo_model_path):
+		if not os.path.exists(self.config.yolo_base_model_path):
 			url = "https://huggingface.co/mosesb/best-comic-panel-detection/resolve/main/best.pt"
-			print(f"Downloading YOLO model to {yolo_model_path}...")
+			print(f"Downloading YOLO model to {self.config.yolo_base_model_path}...")
 			response = requests.get(url)
 			response.raise_for_status()  # Raise an error if the download fails
-			with open(yolo_model_path, "wb") as f:
+			with open(self.config.yolo_base_model_path, "wb") as f:
 				f.write(response.content)
 			print("YOLO model downloaded successfully.")
 
-		self.yolo_model = YOLO(yolo_model_path)
+		self.yolo_model = YOLO(self.config.yolo_base_model_path)
 		os.makedirs(self.config.output_folder, exist_ok=True)
 
 	def extract_bounding_boxes(self, detection_result_boxes):

@@ -75,7 +75,7 @@ def load_yolo_annotations(image_path: str, label_path: str, detect: bool = False
         if detect and not os.path.exists(label_path):
             from .yolo_manager import YOLOManager
             with YOLOManager() as yolo_manager:
-                weights_path = f'{Config.current_path}/{Config.YOLO_MODEL_NAME}.pt'
+                weights_path = Config.yolo_trained_model_path
                 yolo_manager.load_model(weights_path)
                 _, label_path = yolo_manager.annotate_images(
                     image_paths=[image_path],
