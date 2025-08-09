@@ -649,6 +649,12 @@
                 this.lastMouseX = 0;
                 this.lastMouseY = 0;
 
+                // Add these new properties for edge resizing
+                this.isDraggingEdge = false;
+                this.draggingEdgeIndex = -1;
+                this.edgeResizeTolerance = 8;
+                this.showEdgeHandles = true;
+
                 this.init();
             }
 
@@ -893,7 +899,7 @@
                 }
                 this.ctx.stroke();
 
-                // Draw points (larger for selected polygon)
+                // Draw corner points (larger for selected polygon)
                 const pointRadius = isSelected ? 6 : 4;
                 points.forEach((point, index) => {
                     this.ctx.fillStyle = isSelected ? '#0066ff' : strokeColor;
@@ -901,7 +907,6 @@
                     this.ctx.arc(point.x, point.y, pointRadius, 0, 2 * Math.PI);
                     this.ctx.fill();
 
-                    // Draw point outline for selected polygon
                     if (isSelected) {
                         this.ctx.strokeStyle = '#ffffff';
                         this.ctx.lineWidth = 2;
@@ -909,19 +914,90 @@
                     }
                 });
 
-                // Draw edge midpoints for selected polygon (for adding points)
-                if (isSelected && points.length > 2) {
-                    this.ctx.fillStyle = 'rgba(0, 102, 255, 0.7)';
+                // Draw edge handles for selected polygon
+                if (isSelected && points.length > 2 && this.showEdgeHandles) {
+                    this.drawEdgeHandles(points);
+                }
+            }
+            drawEdgeHandles(points) {
+                this.ctx.fillStyle = 'rgba(0, 102, 255, 0.8)';
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = 2;
+
+                for (let i = 0; i < points.length; i++) {
+                    const nextIndex = (i + 1) % points.length;
+                    const midX = (points[i].x + points[nextIndex].x) / 2;
+                    const midY = (points[i].y + points[nextIndex].y) / 2;
+
+                    // Draw square handle
+                    const handleSize = 8;
+                    this.ctx.fillRect(midX - handleSize / 2, midY - handleSize / 2, handleSize, handleSize);
+                    this.ctx.strokeRect(midX - handleSize / 2, midY - handleSize / 2, handleSize, handleSize);
+                }
+            }
+
+            // NEW METHOD: Get edge handle at position
+            getEdgeHandleAtPosition(x, y, tolerance = 8) {
+                if (this.selectedBoxIndex >= 0 && this.annotations[this.selectedBoxIndex].type === 'segmentation') {
+                    const points = this.annotations[this.selectedBoxIndex].points;
                     for (let i = 0; i < points.length; i++) {
                         const nextIndex = (i + 1) % points.length;
                         const midX = (points[i].x + points[nextIndex].x) / 2;
                         const midY = (points[i].y + points[nextIndex].y) / 2;
 
-                        this.ctx.beginPath();
-                        this.ctx.arc(midX, midY, 3, 0, 2 * Math.PI);
-                        this.ctx.fill();
+                        const distance = Math.sqrt(Math.pow(x - midX, 2) + Math.pow(y - midY, 2));
+                        if (distance <= tolerance) {
+                            return i;
+                        }
                     }
                 }
+                return -1;
+            }
+
+            // NEW METHOD: Resize polygon edge
+            resizePolygonEdge(annotationIndex, edgeIndex, mouseX, mouseY) {
+                if (annotationIndex < 0 || annotationIndex >= this.annotations.length) return;
+
+                const annotation = this.annotations[annotationIndex];
+                if (annotation.type !== 'segmentation') return;
+
+                const points = annotation.points;
+                const nextIndex = (edgeIndex + 1) % points.length;
+
+                // Get the edge vector
+                const edgeVectorX = points[nextIndex].x - points[edgeIndex].x;
+                const edgeVectorY = points[nextIndex].y - points[edgeIndex].y;
+
+                // Get the edge normal (perpendicular vector)
+                const edgeLength = Math.sqrt(edgeVectorX * edgeVectorX + edgeVectorY * edgeVectorY);
+                if (edgeLength === 0) return;
+
+                const normalX = -edgeVectorY / edgeLength;
+                const normalY = edgeVectorX / edgeLength;
+
+                // Get edge midpoint
+                const edgeMidX = (points[edgeIndex].x + points[nextIndex].x) / 2;
+                const edgeMidY = (points[edgeIndex].y + points[nextIndex].y) / 2;
+
+                // Calculate how far to move the edge
+                const mouseVectorX = mouseX - edgeMidX;
+                const mouseVectorY = mouseY - edgeMidY;
+
+                // Project mouse movement onto the normal
+                const moveDistance = mouseVectorX * normalX + mouseVectorY * normalY;
+
+                // Move both edge points
+                const newX1 = Math.max(0, Math.min(this.originalWidth, points[edgeIndex].x + normalX * moveDistance));
+                const newY1 = Math.max(0, Math.min(this.originalHeight, points[edgeIndex].y + normalY * moveDistance));
+                const newX2 = Math.max(0, Math.min(this.originalWidth, points[nextIndex].x + normalX * moveDistance));
+                const newY2 = Math.max(0, Math.min(this.originalHeight, points[nextIndex].y + normalY * moveDistance));
+
+                points[edgeIndex].x = newX1;
+                points[edgeIndex].y = newY1;
+                points[nextIndex].x = newX2;
+                points[nextIndex].y = newY2;
+
+                annotation.saved = false;
             }
 
             // Polygon-specific editing methods
@@ -1071,21 +1147,30 @@
                 const pos = this.getMousePos(e);
                 this.lastMouseX = pos.x;
                 this.lastMouseY = pos.y;
+                const handle = this.getResizeHandle(pos.x, pos.y);
 
                 if (this.annotationMode === 'segmentation') {
-                    // Check if clicking on a point of selected polygon
+                    // Check if clicking on an edge handle of selected polygon
                     if (this.selectedBoxIndex >= 0) {
+                        const edgeHandleIndex = this.getEdgeHandleAtPosition(pos.x, pos.y);
+                        if (edgeHandleIndex >= 0) {
+                            this.isDraggingEdge = true;
+                            this.draggingEdgeIndex = edgeHandleIndex;
+                            this.canvas.style.cursor = handle.cursor;
+                            return;
+                        }
+
                         const pointIndex = this.getPolygonPointAtPosition(pos.x, pos.y);
                         if (pointIndex >= 0) {
                             this.isDraggingPoint = true;
                             this.draggingPointIndex = pointIndex;
-                            this.canvas.style.cursor = 'move';
+                            this.canvas.style.cursor = handle.cursor;
                             return;
                         }
 
                         // Check if clicking on an edge to add a point
                         const edgeIndex = this.getPolygonEdgeAtPosition(pos.x, pos.y);
-                        if (edgeIndex >= 0 && e.ctrlKey) { // Ctrl+click to add point
+                        if (edgeIndex >= 0 && e.ctrlKey) {
                             this.addPolygonPoint(this.selectedBoxIndex, edgeIndex, pos.x, pos.y);
                             this.drawCanvas();
                             return;
@@ -1099,7 +1184,7 @@
                         this.isDragging = true;
                         this.dragStartX = pos.x;
                         this.dragStartY = pos.y;
-                        this.canvas.style.cursor = 'move';
+                        this.canvas.style.cursor = handle.cursor;
                         this.updateSelectedBoxInfo();
                         this.drawCanvas();
                         return;
@@ -1126,7 +1211,6 @@
 
                 // Original bbox logic remains the same...
                 if (this.selectedBoxIndex >= 0) {
-                    const handle = this.getResizeHandle(pos.x, pos.y);
                     if (handle) {
                         this.isResizing = true;
                         this.resizeHandle = handle;
@@ -1141,7 +1225,7 @@
                     this.isDragging = true;
                     this.dragStartX = pos.x;
                     this.dragStartY = pos.y;
-                    this.canvas.style.cursor = 'move';
+                    this.canvas.style.cursor = handle.cursor;
                     this.updateSelectedBoxInfo();
                     this.drawCanvas();
                     return;
@@ -1189,6 +1273,13 @@
                 const pos = this.getMousePos(e);
 
                 if (this.annotationMode === 'segmentation') {
+                    if (this.isDraggingEdge && this.selectedBoxIndex >= 0) {
+                        // Resize edge
+                        this.resizePolygonEdge(this.selectedBoxIndex, this.draggingEdgeIndex, pos.x, pos.y);
+                        this.drawCanvas();
+                        return;
+                    }
+
                     if (this.isDraggingPoint && this.selectedBoxIndex >= 0) {
                         // Move individual point
                         this.movePolygonPoint(this.selectedBoxIndex, this.draggingPointIndex, pos.x, pos.y);
@@ -1243,6 +1334,8 @@
 
             onMouseUp() {
                 if (this.annotationMode === 'segmentation') {
+                    this.isDraggingEdge = false;
+                    this.draggingEdgeIndex = -1;
                     this.isDraggingPoint = false;
                     this.draggingPointIndex = -1;
                     this.isDragging = false;
@@ -1292,9 +1385,17 @@
             }
             updatePolygonCursor(x, y) {
                 if (this.selectedBoxIndex >= 0 && this.annotations[this.selectedBoxIndex].type === 'segmentation') {
+                    const handle = this.getResizeHandle(x, y);
+                    // Check for edge handles first
+                    const edgeHandleIndex = this.getEdgeHandleAtPosition(x, y);
+                    if (edgeHandleIndex >= 0) {
+                        this.canvas.style.cursor = handle.cursor;
+                        return;
+                    }
+
                     const pointIndex = this.getPolygonPointAtPosition(x, y);
                     if (pointIndex >= 0) {
-                        this.canvas.style.cursor = 'move';
+                        this.canvas.style.cursor = handle.cursor;
                         return;
                     }
 
@@ -1305,7 +1406,7 @@
                     }
 
                     if (this.isPointInPolygon(x, y, this.annotations[this.selectedBoxIndex].points)) {
-                        this.canvas.style.cursor = 'move';
+                        this.canvas.style.cursor = handle.cursor;
                         return;
                     }
                 }
@@ -1336,7 +1437,7 @@
             }
 
             getResizeHandle(x, y) {
-                if (this.selectedBoxIndex < 0) return null;
+                if (this.selectedBoxIndex < 0) return {cursor: 'move'};
 
                 const box = this.annotations[this.selectedBoxIndex];
                 const handleSize = 8;
@@ -1358,7 +1459,7 @@
                         return handle;
                     }
                 }
-                return null;
+                return {cursor: 'move'};
             }
 
             getBoxAtPosition(x, y) {
