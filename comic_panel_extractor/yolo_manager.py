@@ -68,8 +68,8 @@ class YOLOManager:
             print(f"📦 Loading model from: {weights_path}")
             self.model = YOLO(weights_path)
         else:
-            print("✨ Loading pretrained model 'yolo12s.pt'")
-            self.model = YOLO(f"{Config.current_path}/yolo12s.pt")
+            print("✨ Loading pretrained model 'yolov12s-seg.pt'")
+            self.model = YOLO(f"{Config.current_path}/yolov12s-seg.pt")
         return self.model
     
     def train(self, 

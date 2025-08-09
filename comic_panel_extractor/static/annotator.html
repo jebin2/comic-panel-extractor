@@ -504,8 +504,8 @@
                     <div class="section-title">Annotation Mode</div>
                     <div class="form-field">
                         <select class="form-select" id="annotationMode">
-                            <option value="bbox">Bounding Box (YOLO)</option>
                             <option value="segmentation">Segmentation (YOLO-seg)</option>
+                            <option value="bbox">Bounding Box (YOLO)</option>
                         </select>
                     </div>
                     <div class="form-field">
@@ -634,7 +634,7 @@
                 this.currentBox = null;
 
                 // Segmentation state
-                this.annotationMode = 'bbox'; // 'bbox' or 'segmentation'
+                this.annotationMode = 'segmentation'; // 'bbox' or 'segmentation'
                 this.currentPolygon = null;
                 this.isDrawingPolygon = false;
                 this.polygonPoints = [];
@@ -1684,6 +1684,28 @@
 
             // Modified onKeyDown method with new resize functionality
             onKeyDown(e) {
+                // Handle escape key for canceling drawing
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+
+                    // Cancel polygon drawing if in progress
+                    if (this.annotationMode === 'segmentation' && this.isDrawingPolygon) {
+                        this.cancelPolygonDrawing();
+                        return;
+                    }
+
+                    // Cancel bbox drawing if in progress
+                    if (this.annotationMode === 'bbox' && this.isDrawing) {
+                        this.cancelBboxDrawing();
+                        return;
+                    }
+
+                    // Clear selection if nothing is being drawn
+                    this.selectedBoxIndex = -1;
+                    this.updateSelectedBoxInfo();
+                    this.drawCanvas();
+                    return;
+                }
                 if (!this.currentImage || this.selectedBoxIndex < 0) return;
 
                 const resizeDistance = 5; // Fixed resize distance
@@ -1750,6 +1772,25 @@
                         break;
                 }
             }
+            cancelPolygonDrawing() {
+                this.isDrawingPolygon = false;
+                this.polygonPoints = [];
+                this.currentPolygon = null;
+                this.selectedBoxIndex = -1;
+                this.updateSelectedBoxInfo();
+                this.drawCanvas();
+                this.showAlert('Polygon drawing canceled', 'info');
+            }
+
+            cancelBboxDrawing() {
+                this.isDrawing = false;
+                this.currentBox = null;
+                this.selectedBoxIndex = -1;
+                this.updateSelectedBoxInfo();
+                this.drawCanvas();
+                this.showAlert('Bounding box drawing canceled', 'info');
+            }
+
 
             // New method to resize selected box
             resizeSelectedBox(deltaWidth, deltaHeight) {

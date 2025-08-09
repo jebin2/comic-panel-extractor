@@ -8,6 +8,71 @@ import os
 from pathlib import Path
 import shutil
 
+def convert_box_to_polygon(label_file: Path):
+    """
+    Converts YOLO box-format labels (class xc yc w h) to YOLO polygon-format labels
+    for segmentation. Creates a 4-point polygon representing the bounding box.
+    Overwrites the label file in place if conversion is needed.
+    """
+    if not label_file.exists():
+        return
+
+    new_lines = []
+    changed = False
+
+    with open(label_file, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:  # Skip empty lines
+                continue
+                
+            parts = line.split()
+            
+            if len(parts) == 5:
+                # Box format → convert to polygon
+                try:
+                    cls = int(float(parts[0]))  # Class should be integer
+                    xc, yc, bw, bh = map(float, parts[1:])
+                    
+                    # Calculate corner points (clockwise from top-left)
+                    x1 = max(0.0, min(1.0, xc - bw / 2))  # top-left x
+                    y1 = max(0.0, min(1.0, yc - bh / 2))  # top-left y
+                    x2 = max(0.0, min(1.0, xc + bw / 2))  # top-right x
+                    y2 = max(0.0, min(1.0, yc - bh / 2))  # top-right y
+                    x3 = max(0.0, min(1.0, xc + bw / 2))  # bottom-right x
+                    y3 = max(0.0, min(1.0, yc + bh / 2))  # bottom-right y
+                    x4 = max(0.0, min(1.0, xc - bw / 2))  # bottom-left x
+                    y4 = max(0.0, min(1.0, yc + bh / 2))  # bottom-left y
+                    
+                    # Format: class x1 y1 x2 y2 x3 y3 x4 y4
+                    polygon_line = f"{cls} {x1:.6f} {y1:.6f} {x2:.6f} {y2:.6f} {x3:.6f} {y3:.6f} {x4:.6f} {y4:.6f}"
+                    new_lines.append(polygon_line)
+                    changed = True
+                    
+                except (ValueError, IndexError):
+                    # If parsing fails, keep original line
+                    new_lines.append(line)
+                    
+            elif len(parts) > 5 and len(parts) % 2 == 1:
+                # Already polygon format (odd number of parts: class + pairs of coordinates)
+                try:
+                    cls = int(float(parts[0]))
+                    coords = [float(x) for x in parts[1:]]
+                    # Clamp coordinates to [0,1] range
+                    coords = [max(0.0, min(1.0, coord)) for coord in coords]
+                    coord_str = " ".join(f"{coord:.6f}" for coord in coords)
+                    new_lines.append(f"{cls} {coord_str}")
+                except (ValueError, IndexError):
+                    # If parsing fails, keep original line
+                    new_lines.append(line)
+            else:
+                # Unknown format, keep as-is
+                new_lines.append(line)
+
+    if changed:
+        with open(label_file, "w") as f:
+            f.write("\n".join(new_lines) + "\n")
+
 def create_filtered_dataset(original_dataset_path, output_filtered_dataset_path):
     """
     Create a filtered dataset with only images that have non-empty labels
@@ -56,6 +121,7 @@ def create_filtered_dataset(original_dataset_path, output_filtered_dataset_path)
                             shutil.copy2(img_file, output_images_dir / img_file.name)
                             # Copy label
                             shutil.copy2(label_file, output_labels_dir / label_file.name)
+                            convert_box_to_polygon(output_labels_dir / label_file.name)
                             copied_count += 1
                         else:
                             print(f"Skipping {img_file.name} - empty label file")
