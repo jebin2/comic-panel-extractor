@@ -12,7 +12,7 @@ class Config:
 	current_path = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 	YOLO_BASE_MODEL_NAME = os.getenv('YOLO_BASE_MODEL_NAME', 'yolo11s-seg')
 	yolo_base_model_path: str = f'{current_path}/{YOLO_BASE_MODEL_NAME}.pt'
-	YOLO_MODEL_NAME = f'{os.getenv('YOLO_MODEL_NAME', 'comic_panel')}_{YOLO_BASE_MODEL_NAME}'
+	YOLO_MODEL_NAME = f"{os.getenv('YOLO_MODEL_NAME', 'comic_panel')}_{YOLO_BASE_MODEL_NAME}"
 	yolo_trained_model_path: str = f'{current_path}/{YOLO_MODEL_NAME}.pt'
 	black_overlay_input_path: str = ""
 	output_folder: str = "temp_dir"
