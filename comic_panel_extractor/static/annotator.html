@@ -857,7 +857,7 @@
                     }
 
                     if (annotation.type === 'segmentation') {
-                        this.drawPolygon(annotation.points, strokeColor, fillColor);
+                        this.drawPolygon(annotation.points, strokeColor, fillColor, index === this.selectedBoxIndex);
                     } else {
                         this.drawBox(annotation.left, annotation.top, annotation.width, annotation.height, strokeColor, fillColor);
                     }
@@ -870,8 +870,7 @@
 
                 // Draw current box being drawn
                 if (this.currentBox) {
-                    this.drawBox(this.currentBox.left, this.currentBox.top,
-                        this.currentBox.width, this.currentBox.height, '#ff0000', 'rgba(255, 0, 0, 0.3)');
+                    this.drawBox(this.currentBox.left, this.currentBox.top, this.currentBox.width, this.currentBox.height, '#ff0000', 'rgba(255, 0, 0, 0.3)');
                 }
 
                 // Draw current polygon being drawn
@@ -899,26 +898,38 @@
                 }
                 this.ctx.stroke();
 
-                // Draw corner points (larger for selected polygon)
-                const pointRadius = isSelected ? 6 : 4;
+                // Draw corner points as squares (like bbox handles) - ONLY at intersecting points
+                const handleSize = isSelected ? 10 : 6;
                 points.forEach((point, index) => {
                     this.ctx.fillStyle = isSelected ? '#0066ff' : strokeColor;
-                    this.ctx.beginPath();
-                    this.ctx.arc(point.x, point.y, pointRadius, 0, 2 * Math.PI);
-                    this.ctx.fill();
+
+                    // Draw square handle centered on the point
+                    this.ctx.fillRect(
+                        point.x - handleSize / 2,
+                        point.y - handleSize / 2,
+                        handleSize,
+                        handleSize
+                    );
 
                     if (isSelected) {
                         this.ctx.strokeStyle = '#ffffff';
                         this.ctx.lineWidth = 2;
-                        this.ctx.stroke();
+                        this.ctx.strokeRect(
+                            point.x - handleSize / 2,
+                            point.y - handleSize / 2,
+                            handleSize,
+                            handleSize
+                        );
                     }
                 });
 
-                // Draw edge handles for selected polygon
+                // Draw edge handles for selected polygon (these are the midpoint handles)
                 if (isSelected && points.length > 2 && this.showEdgeHandles) {
                     this.drawEdgeHandles(points);
                 }
             }
+
+
             drawEdgeHandles(points) {
                 this.ctx.fillStyle = 'rgba(0, 102, 255, 0.8)';
                 this.ctx.strokeStyle = '#ffffff';
@@ -930,7 +941,7 @@
                     const midY = (points[i].y + points[nextIndex].y) / 2;
 
                     // Draw square handle
-                    const handleSize = 8;
+                    const handleSize = 10;
                     this.ctx.fillRect(midX - handleSize / 2, midY - handleSize / 2, handleSize, handleSize);
                     this.ctx.strokeRect(midX - handleSize / 2, midY - handleSize / 2, handleSize, handleSize);
                 }
@@ -1437,7 +1448,7 @@
             }
 
             getResizeHandle(x, y) {
-                if (this.selectedBoxIndex < 0) return {cursor: 'move'};
+                if (this.selectedBoxIndex < 0) return { cursor: 'move' };
 
                 const box = this.annotations[this.selectedBoxIndex];
                 const handleSize = 8;
@@ -1459,7 +1470,7 @@
                         return handle;
                     }
                 }
-                return {cursor: 'move'};
+                return { cursor: 'move' };
             }
 
             getBoxAtPosition(x, y) {
