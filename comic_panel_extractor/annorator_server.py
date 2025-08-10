@@ -10,6 +10,8 @@ import shutil
 from .config import Config
 from typing import List, Optional, Union, Dict, Any
 from . import utils
+import copy
+import traceback
 
 app = APIRouter()
 
@@ -73,17 +75,19 @@ def load_yolo_annotations(image_path: str, label_path: str, detect: bool = False
         annotations = []
 
         # Auto-detect if needed
+        normalise = False
         if detect and not os.path.exists(label_path):
             from .yolo_manager import YOLOManager
             with YOLOManager() as yolo_manager:
                 weights_path = Config.yolo_trained_model_path
                 yolo_manager.load_model(weights_path)
-                _, label_path = yolo_manager.annotate_images(
+                yolo_manager.annotate_images(
                     image_paths=[image_path],
                     output_dir=IMAGE_LABEL_ROOT,
                     save_image=False,
                     label_path=label_path
                 )
+                normalise = True
 
         if os.path.exists(label_path):
             with open(label_path, "r") as f:
@@ -134,13 +138,32 @@ def load_yolo_annotations(image_path: str, label_path: str, detect: bool = False
                                 "fill": "rgba(0, 255, 0, 0.2)",
                                 "saved": True
                             })
-
+            if normalise:
+                annotations = utils.normalize_segmentation(annotations)
+                save_yolo_annotations(
+                    copy.deepcopy(annotations),
+                    (w, h),
+                    label_path
+                )
         return annotations, (w, h)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading annotations: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error loading annotations: {str(e)} {traceback.format_exc()}")
+
+def normalize_annotations(annotations: List[Union[Box, dict]]) -> List[Box]:
+    """Convert all annotations to Box objects."""
+    normalized = []
+    for ann in annotations:
+        if isinstance(ann, Box):
+            normalized.append(ann)
+        elif isinstance(ann, dict):
+            normalized.append(Box(**ann))
+        else:
+            raise TypeError(f"Unsupported annotation type: {type(ann)}")
+    return normalized
 
 def save_yolo_annotations(annotations: List[Box], original_size: tuple, label_path: str):
     """Save annotations in YOLO format (both bbox and segmentation)"""
+    annotations = normalize_annotations(annotations)
     os.makedirs(os.path.dirname(label_path), exist_ok=True)
     w, h = original_size
 
@@ -169,7 +192,7 @@ def save_yolo_annotations(annotations: List[Box], original_size: tuple, label_pa
         shutil.copy2(label_path, f"{IMAGE_LABEL_ROOT}/{os.path.basename(label_path)}")
         return True
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error saving annotations: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error saving annotations: {str(e)} {traceback.format_exc()}")
 
 def parse_yolo_line(line: str, image_width: int, image_height: int) -> Dict[str, Any]:
     """Parse a single YOLO format line and return annotation dict"""
@@ -273,7 +296,7 @@ async def get_annotations(image_name: str):
     annotations, (width, height) = load_yolo_annotations(image_path, label_path)
 
     return {
-        "annotations": utils.normalize_segmentation(annotations),
+        "annotations": annotations,
         "original_width": width,
         "original_height": height
     }
@@ -288,7 +311,7 @@ async def get_detected_annotations(image_name: str):
 
     annotations, (width, height) = load_yolo_annotations(image_path, label_path, True)
     return {
-        "annotations": utils.normalize_segmentation(annotations),
+        "annotations": annotations,
         "original_width": width,
         "original_height": height
     }
