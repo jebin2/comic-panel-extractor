@@ -522,6 +522,15 @@
             📸 Comic Panel Annotator
         </div>
         <div class="nav-actions">
+            <button class="btn btn-primary btn-sm" id="detectBtn" style="display: none;">
+                🔄 Detect
+            </button>
+            <button class="btn btn-secondary btn-sm" id="downloadBtn" style="display: none;">
+                📥 Download
+            </button>
+            <button class="btn btn-primary btn-sm" id="reloadBtn">
+                🔄 Reload
+            </button>
             <button class="btn btn-ghost btn-sm" id="prevBtn" disabled>
                 ← Prev
             </button>
@@ -545,9 +554,9 @@
         <div class="sidebar">
             <!-- Image Selection -->
             <div class="sidebar-section">
-                <div class="section-title">Image Selection</div>
+                <div class="section-title" style="display: none;">Image Selection</div>
 
-                <div class="image-nav">
+                <!-- <div class="image-nav"> -->
                     <!-- <button class="btn btn-ghost btn-sm" id="prevBtn" disabled>
                         ← Prev
                     </button> -->
@@ -555,15 +564,15 @@
                         No image
                     </div> -->
 
-                    <div class="form-field">
+                    <!-- <div class="form-field">
                         <select class="form-select" id="imageSelect">
                             <option value="">Choose an image...</option>
                         </select>
-                    </div>
+                    </div> -->
                     <!-- <button class="btn btn-ghost btn-sm" id="nextBtn" disabled>
                         Next →
                     </button> -->
-                </div>
+                <!-- </div> -->
                 <!-- Annotation Mode -->
                 <div class="sidebar-section">
                     <div class="section-title">Annotation Mode</div>
@@ -573,14 +582,14 @@
                             <option value="bbox">Bounding Box (YOLO)</option>
                         </select>
                     </div>
-                    <div class="form-field">
+                    <div class="form-field" style="display: none;">
                         <label class="form-label">Class ID</label>
                         <input type="number" class="form-input" id="classId" value="0" min="0" max="100">
                     </div>
                 </div>
 
 
-                <div class="file-upload">
+                <div class="file-upload" style="display: none;">
                     <input type="file" id="uploadFile" accept="image/*">
                     <label for="uploadFile" class="file-upload-label">
                         📤 Drop or click to upload
@@ -589,7 +598,7 @@
             </div>
 
             <!-- Progress -->
-            <div class="sidebar-section">
+            <!-- <div class="sidebar-section">
                 <div class="progress-section">
                     <h3 style="margin-bottom: 12px; font-size: 16px;">Progress</h3>
                     <div class="progress-stat">
@@ -600,7 +609,7 @@
                         <div class="progress-fill" id="progressFill" style="width: 0%"></div>
                     </div>
                 </div>
-            </div>
+            </div> -->
 
             <!-- Current Image Info -->
             <div class="sidebar-section" id="currentImageInfo" style="display: none;">
@@ -661,7 +670,7 @@
                         <div id="polygonEditControls" style="display: none;">
                             <div class="form-field" style="margin-bottom: 8px;">
                                 <label class="form-label">Points (<span id="pointCount">0</span>)</label>
-                                <div id="pointsList" style="max-height: 120px; overflow-y: auto; 
+                                <div id="pointsList" style="max-height: 400px; overflow-y: auto; 
                                                border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px;">
                                     <!-- Points will be populated here -->
                                 </div>
@@ -688,7 +697,7 @@
 
 
             <!-- Quick Actions -->
-            <div class="sidebar-section">
+            <!-- <div class="sidebar-section">
                 <div class="section-title">Actions</div>
                 <button class="btn btn-primary btn-block" id="reloadBtn">
                     🔄 Reload Annotations
@@ -699,7 +708,7 @@
                 <button class="btn btn-secondary btn-block" id="downloadBtn" style="display: none; margin-top: 8px;">
                     📥 Download
                 </button>
-            </div>
+            </div>-->
 
             <!-- Quick Help -->
             <div class="sidebar-section">
@@ -727,9 +736,15 @@
         <!-- Canvas Area -->
         <div class="canvas-area">
             <div class="canvas-toolbar">
-                <span id="file_name" style="font-size: 13px; color: #4a5568;">
+                <!-- <span id="file_name" style="font-size: 13px; color: #4a5568;">
                     Click and drag to create annotation annotations • Select annotations to move or resize
-                </span>
+                </span> -->
+                <div class="form-field">
+                    <select class="form-select" id="imageSelect">
+                        <option value="">Choose an image...</option>
+                    </select>
+                </div>
+                <span id="annotatedImages">0</span>/<span id="totalImages">0</span>
             </div>
 
             <div class="canvas-container">
@@ -906,7 +921,7 @@
                     document.getElementById('totalImages').textContent = this.images.length;
                     document.getElementById('annotatedImages').textContent = annotated;
                     const progress = this.images.length > 0 ? (annotated / this.images.length) * 100 : 0;
-                    document.getElementById('progressFill').style.width = progress + '%';
+                    // document.getElementById('progressFill').style.width = progress + '%';
 
                     this.updateNavigationButtons();
 
@@ -935,7 +950,7 @@
                     this.currentImageIndex--;
                     const imageName = this.images[this.currentImageIndex].name;
                     document.getElementById('imageSelect').value = imageName;
-                    document.getElementById('file_name').innerText = imageName;
+                    // document.getElementById('file_name').innerText = imageName;
                     this.loadImage(imageName);
                 }
             }
@@ -945,7 +960,7 @@
                     this.currentImageIndex++;
                     const imageName = this.images[this.currentImageIndex].name;
                     document.getElementById('imageSelect').value = imageName;
-                    document.getElementById('file_name').innerText = imageName;
+                    // document.getElementById('file_name').innerText = imageName;
                     this.loadImage(imageName);
                 }
             }

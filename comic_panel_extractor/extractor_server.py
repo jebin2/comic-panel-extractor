@@ -56,7 +56,7 @@ async def convert_comic(file: UploadFile = File(...)):
     specific_output_folder = f'{output_folder}/{file_id}'
 
     shutil.rmtree(specific_output_folder, ignore_errors=True)
-    Path(specific_output_folder).mkdir(exist_ok=True)
+    Path(specific_output_folder).mkdir(parents=True, exist_ok=True)
     file_path = f'{specific_output_folder}/{file.filename}'
     
     # Save uploaded file

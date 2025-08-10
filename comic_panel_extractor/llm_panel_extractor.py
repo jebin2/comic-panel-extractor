@@ -17,7 +17,7 @@ class LLMPanelExtractor:
 
 		# Check if YOLO model exists; if not, download it to the specified path
 		yolo_base_model_path = f'{self.config.yolo_base_model_path}_best.pt'
-		yolo_base_model_path = f'{self.config.yolo_trained_model_path}'
+		# yolo_base_model_path = f'{self.config.yolo_trained_model_path}'
 		if not os.path.exists(yolo_base_model_path):
 			url = "https://huggingface.co/mosesb/best-comic-panel-detection/resolve/main/best.pt"
 			print(f"Downloading YOLO model to {yolo_base_model_path}...")
