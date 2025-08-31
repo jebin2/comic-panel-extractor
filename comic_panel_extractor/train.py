@@ -196,8 +196,8 @@ def main():
 
 if __name__ == "__main__":# Configuration
     # Configuration
-    original_dataset_path = "/home/jebineinstein/git/comic-panel-extractor/comic_panel_extractor/dataset"
-    output_filtered_dataset_path = "/home/jebineinstein/git/comic-panel-extractor/comic_panel_extractor/filtered_dataset"
+    original_dataset_path = "/home/jebin/git/comic-panel-extractor/comic_panel_extractor/dataset"
+    output_filtered_dataset_path = "/home/jebin/git/comic-panel-extractor/comic_panel_extractor/filtered_dataset"
     
     print("🔍 Starting dataset filtering...")
     print(f"📂 Source: {original_dataset_path}")

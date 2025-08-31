@@ -8,6 +8,7 @@ import os
 import shutil
 import requests
 from pathlib import Path
+from . import common
 
 class LLMPanelExtractor:
 	"""Handles image preprocessing operations."""
@@ -85,7 +86,7 @@ class LLMPanelExtractor:
 			image_width, image_height = input_image.size
 
 		# Run YOLO detection
-		detection_results = self.yolo_model.predict(source=input_image_path)
+		detection_results = self.yolo_model.predict(source=input_image_path, device=common.get_device())
 		first_detection_result = detection_results[0]
 		newly_detected_boxes = None
 		all_processed_boxes = []

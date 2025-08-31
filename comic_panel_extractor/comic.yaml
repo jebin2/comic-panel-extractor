@@ -1,5 +1,5 @@
-path: /home/jebineinstein/git/comic-panel-extractor/comic_panel_extractor/dataset
-train: /home/jebineinstein/git/comic-panel-extractor/comic_panel_extractor/dataset/images/train
-val: /home/jebineinstein/git/comic-panel-extractor/comic_panel_extractor/dataset/images/val
+path: /home/jebin/git/comic-panel-extractor/comic_panel_extractor/dataset
+train: /home/jebin/git/comic-panel-extractor/comic_panel_extractor/dataset/images/train
+val: /home/jebin/git/comic-panel-extractor/comic_panel_extractor/dataset/images/val
 nc: 1
 names: ['panel']
