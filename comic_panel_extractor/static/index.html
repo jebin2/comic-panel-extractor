@@ -307,6 +307,27 @@
             transform: scale(1.05);
         }
 
+        .footer-note {
+            margin-top: 40px;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border-radius: 15px;
+            text-align: center;
+            font-size: 0.9em;
+            color: #555;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .footer-note a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .footer-note a:hover {
+            text-decoration: underline;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 20px;
@@ -361,6 +382,12 @@
         <div class="results" id="results" style="display: none;">
             <h2>Extracted Panels</h2>
             <div class="panels-grid" id="panels-grid"></div>
+        </div>
+
+        <div class="footer-note">
+            Currently using pretrained model from 
+            <a href="https://huggingface.co/mosesb/best-comic-panel-detection" target="_blank">mosesb/best-comic-panel-detection</a>
+            until custom training is complete.
         </div>
     </div>
 
