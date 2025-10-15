@@ -12,7 +12,8 @@ https://jebin2-comic-panel-extractor.hf.space/
 # 📚 Comic Panel Extractor
 
 Automatically extract panels from comic pages using YOLO segmentation and image processing.
-Meanwhile currently using - "https://huggingface.co/mosesb/best-comic-panel-detection/resolve/main/best.pt"
+
+> **Note:** Currently using pretrained model from [mosesb/best-comic-panel-detection](https://huggingface.co/mosesb/best-comic-panel-detection) until custom training is complete. The model downloads automatically on first run.
 
 ## Installation
 
