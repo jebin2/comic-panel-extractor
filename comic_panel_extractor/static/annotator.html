@@ -2823,6 +2823,7 @@
                 formData.append('file', file);
 
                 try {
+                    this.showModeIndicator('File Upload is in progress', 'Uploading File');
                     const response = await fetch('/api/annotate/upload', {
                         method: 'POST',
                         body: formData
