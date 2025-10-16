@@ -250,6 +250,7 @@
             width: 100%;
             margin-top: 10px;
         }
+
         /* Navigation Controls */
         .image-nav {
             display: flex;
@@ -563,10 +564,12 @@
             box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
             padding: 30px;
         }
+
         #outputModal .modal-content {
             height: 85vh;
             background: black;
-            overflow: hidden; /* Xterm handles its own scrollbar */
+            overflow: hidden;
+            /* Xterm handles its own scrollbar */
             padding: 15px;
             box-sizing: border-box;
         }
@@ -645,19 +648,19 @@
                 <div class="section-title" style="display: none;">Image Selection</div>
 
                 <!-- <div class="image-nav"> -->
-                    <!-- <button class="btn btn-ghost btn-sm" id="prevBtn" disabled>
+                <!-- <button class="btn btn-ghost btn-sm" id="prevBtn" disabled>
                         ← Prev
                     </button> -->
-                    <!-- <div class="nav-counter" id="currentImageDisplay">
+                <!-- <div class="nav-counter" id="currentImageDisplay">
                         No image
                     </div> -->
 
-                    <!-- <div class="form-field">
+                <!-- <div class="form-field">
                         <select class="form-select" id="imageSelect">
                             <option value="">Choose an image...</option>
                         </select>
                     </div> -->
-                    <!-- <button class="btn btn-ghost btn-sm" id="nextBtn" disabled>
+                <!-- <button class="btn btn-ghost btn-sm" id="nextBtn" disabled>
                         Next →
                     </button> -->
                 <!-- </div> -->
@@ -892,7 +895,7 @@
         socket.onmessage = function (event) {
             if (!term) return;
             const data = JSON.parse(event.data);
-            term.write(data.data+"\n");
+            term.write(data.data + "\n");
         };
 
         class ComicAnnotator {
@@ -1030,7 +1033,7 @@
                     try {
                         this.openXterm();
                         const response = await fetch('/api/annotate/train?recreate_dataset=true');
-                        
+
                         if (!response.ok) {
                             throw new Error(`Server error: ${response.status}`);
                         }
@@ -1062,16 +1065,16 @@
                 document.getElementById('closeModal').addEventListener('click', async (e) => {
                     this.closeTrainModal()
                 });
-        
+
                 // NEW: Add resize listener to refit terminal on window resize
                 window.addEventListener('resize', () => {
-                if (document.getElementById('outputModal').style.display === 'block' && fitAddon) {
-                    try {
-                        fitAddon.fit();
-                    } catch (e) {
-                        console.error("Error fitting terminal on resize:", e);
+                    if (document.getElementById('outputModal').style.display === 'block' && fitAddon) {
+                        try {
+                            fitAddon.fit();
+                        } catch (e) {
+                            console.error("Error fitting terminal on resize:", e);
+                        }
                     }
-                }
                 });
             }
 
@@ -1740,17 +1743,17 @@
                     indicator = document.createElement('div');
                     indicator.id = 'modeIndicator';
                     indicator.style.cssText = `
-            position: fixed;
-            top: 120px;
-            right: 20px;
-            z-index: 1001;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 500;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        `;
+                        position: fixed;
+                        top: 120px;
+                        right: 20px;
+                        z-index: 1001;
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        font-size: 13px;
+                        font-weight: 500;
+                        pointer-events: none;
+                        transition: opacity 0.3s ease;
+                    `;
                     document.body.appendChild(indicator);
                 }
 
@@ -2329,7 +2332,7 @@
                 // Other key handlers
                 switch (e.key) {
                     case 'Delete':
-                    // case 'Backspace':
+                        // case 'Backspace':
                         e.preventDefault();
                         this.deleteSelectedBox();
                         break;
