@@ -4,6 +4,7 @@ opencv-python
 easyocr
 fastapi
 uvicorn
+websockets
 python-multipart
 jinja2
 scikit-image
@@ -14,3 +15,4 @@ Pillow
 opencv-contrib-python
 dotenv
 tqdm
+toml

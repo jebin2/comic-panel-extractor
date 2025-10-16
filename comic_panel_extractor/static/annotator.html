@@ -5,6 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📸 Comic Panel Annotator</title>
+    <!-- Xterm.js Files -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -241,6 +246,10 @@
             width: 100%;
         }
 
+        .trainBtn {
+            width: 100%;
+            margin-top: 10px;
+        }
         /* Navigation Controls */
         .image-nav {
             display: flex;
@@ -512,6 +521,85 @@
             border-color: #ffc107 !important;
             background: #fff3cd !important;
         }
+
+        .modal {
+            display: none;
+            /* Hidden by default */
+            position: fixed;
+            /* Stay in place */
+            z-index: 1000;
+            /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%;
+            /* Full width */
+            height: 100%;
+            /* Full height */
+            overflow: auto;
+            /* Enable scroll if needed */
+            /* Black w/ opacity */
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            /* White background */
+            margin: 2% 0 0 28%;
+            /* 15% from the top and centered */
+            padding: 20px;
+            border: 1px solid #888;
+            /* Border */
+            width: 80%;
+            /* Could be more or less, depending on screen size */
+            max-width: 600px;
+            /* Maximum width */
+            border-radius: 8px;
+            /* Rounded corners */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            /* Shadow */
+            background: linear-gradient(135deg, #fff, #f0f0f0);
+            border: 4px solid #000000;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+        }
+        #outputModal .modal-content {
+            height: 85vh;
+            background: black;
+            overflow: hidden; /* Xterm handles its own scrollbar */
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        .all-button {
+            position: fixed;
+            top: 50px;
+            right: 10%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .clear-button,
+        .stop-button {
+            float: right;
+            font-size: 0.8em;
+            width: auto;
+            padding: 8px 12px;
+            margin: 2px;
+            margin-bottom: 10px;
+        }
+
+        .close {
+            color: #FF6B6B;
+            font-size: 40px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: fixed;
+            top: 22px;
+            z-index: 10000;
+        }
     </style>
 </head>
 
@@ -589,12 +677,15 @@
                 </div>
 
 
-                <div class="file-upload" style="display: none;">
+                <div class="file-upload">
                     <input type="file" id="uploadFile" accept="image/*">
                     <label for="uploadFile" class="file-upload-label">
                         📤 Drop or click to upload
                     </label>
                 </div>
+                <button class="btn btn-primary btn-sm trainBtn" id="trainBtn">
+                    Train
+                </button>
             </div>
 
             <!-- Progress -->
@@ -760,7 +851,44 @@
     <!-- Alerts Container -->
     <div class="alerts" id="alerts"></div>
 
+
+    <div id="outputModal" class="modal">
+        <div class="modal-content" style="max-width: none; margin: auto;">
+            <span class="close" id="closeModal">×</span>
+            <div class="all-button">
+                <!-- REMOVED: Scroll control button -->
+                <button class="stop-button" id="stopTrain">Stop</button>
+                <button class="clear-button" id="clearOutput">Clear</button>
+            </div>
+            <!-- This div will host the xterm.js terminal -->
+            <div id="output"></div>
+        </div>
+    </div>
     <script>
+
+        // NEW: Xterm.js variables
+        let term;
+        let fitAddon;
+
+        function getWebSocketURL() {
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+            if (isLocal) {
+                return 'ws://localhost:' + window.location.port + '/ws';
+            } else {
+                // Use current domain for Spaces
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                return `${protocol}//${window.location.host}/ws`;
+            }
+        }
+        const socket = new WebSocket(getWebSocketURL());
+
+        socket.onmessage = function (event) {
+            if (!term) return;
+            const data = JSON.parse(event.data);
+            term.write(data.data+"\n");
+        };
+
         class ComicAnnotator {
             constructor() {
                 this.canvas = document.getElementById('annotationCanvas');
@@ -891,6 +1019,54 @@
 
                 // Make canvas focusable for keyboard events
                 this.canvas.tabIndex = 0;
+
+                document.getElementById('trainBtn').addEventListener('click', async (e) => {
+                    try {
+                        this.openXterm();
+                        const response = await fetch('/api/annotate/train?recreate_dataset=true');
+                        
+                        if (!response.ok) {
+                            throw new Error(`Server error: ${response.status}`);
+                        }
+
+                        const result = await response.json();
+
+                        this.showAlert(result.message, 'success');
+
+                    } catch (error) {
+                        if (term) {
+                            term.write(`\x1b[31m[Error starting command: ${error.message}]\x1b[0m\r\n`);
+                        } else {
+                            this.showAlert('Error starting command: ' + error.message, 'error');
+                        }
+                    }
+
+                    // Reset file input
+                    document.getElementById('uploadFile').value = '';
+                });
+
+                document.getElementById('stopTrain').addEventListener('click', async (e) => {
+                    this.stopTrain()
+                });
+
+                document.getElementById('clearOutput').addEventListener('click', async (e) => {
+                    this.clearOutput()
+                });
+
+                document.getElementById('closeModal').addEventListener('click', async (e) => {
+                    this.closeTrainModal()
+                });
+        
+                // NEW: Add resize listener to refit terminal on window resize
+                window.addEventListener('resize', () => {
+                if (document.getElementById('outputModal').style.display === 'block' && fitAddon) {
+                    try {
+                        fitAddon.fit();
+                    } catch (e) {
+                        console.error("Error fitting terminal on resize:", e);
+                    }
+                }
+                });
             }
 
             updateCanvasCursor() {
@@ -1533,7 +1709,7 @@
                     saved: false
                 };
                 this.drawCanvas();
-                this.showModeIndicator('Segmentation Mode', 'segmentation');
+                this.showModeIndicator('Segmentation Mode, After pointing three/more points press enter to release', 'segmentation');
             }
 
             startBboxDrawing(pos) {
@@ -2649,11 +2825,12 @@
                         await this.loadImages();
 
                         // Auto-select the uploaded image
-                        const index = this.images.findIndex(img => img.name === file.name);
+                        var new_file_name = "train/" + file.name
+                        const index = this.images.findIndex(img => img.name === new_file_name);
                         if (index >= 0) {
                             this.currentImageIndex = index;
-                            document.getElementById('imageSelect').value = file.name;
-                            this.loadImage(file.name);
+                            document.getElementById('imageSelect').value = new_file_name;
+                            this.loadImage(new_file_name);
                         }
                     } else {
                         throw new Error('Upload failed');
@@ -2680,6 +2857,53 @@
                         alert.parentNode.removeChild(alert);
                     }
                 }, 5000);
+            }
+            ////////////////////////// ----train---- //////////////////////////
+            openXterm() {
+                const modal = document.getElementById('outputModal');
+                modal.style.display = 'block';
+                // Initialize terminal on first run
+                if (!term) {
+
+                    term = new Terminal({
+                        cursorBlink: true,
+                        convertEol: true,
+                        theme: {
+                            background: '#000000',
+                            foreground: '#00FF7F', // SpringGreen
+                            cursor: 'rgba(255, 255, 255, 0.5)'
+                        }
+                    });
+                    fitAddon = new FitAddon.FitAddon();
+                    const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+                    term.loadAddon(fitAddon);
+                    term.loadAddon(webLinksAddon);
+                    term.open(document.getElementById('output'));
+                }
+
+                // Use a short timeout to ensure the modal is visible before fitting
+                setTimeout(() => fitAddon.fit(), 50);
+
+                term.clear();
+                term.focus();
+                term.write('\x1b[33mRunning command...\x1b[0m\r\n');
+            }
+
+            clearOutput() {
+                if (term) {
+                    term.clear();
+                }
+            }
+
+            stopTrain() {
+                fetch('/api/annotate/stopTrain', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+            closeTrainModal() {
+                const modal = document.getElementById('outputModal');
+                modal.style.display = 'none';
             }
         }
 

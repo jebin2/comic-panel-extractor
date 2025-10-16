@@ -7,7 +7,7 @@ from tqdm import tqdm
 from .config import Config
 
 load_dotenv()
-SOURCE_PATHS = os.getenv('SOURCE_PATH')
+SOURCE_PATHS = Config.IMAGE_SOURCE_PATH
 
 if not SOURCE_PATHS:
     raise ValueError("SOURCE_PATH not set")

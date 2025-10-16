@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from .extractor_server import app as extractor_app, delete_folder_if_old_or_empty, output_folder
 from .annorator_server import app as annotator_app
-import os
+import os, json
 from .config import Config
 
 from fastapi import Request
@@ -19,6 +20,16 @@ fast_api.mount("/static", StaticFiles(directory=static_folder), name="static")
 
 fast_api.include_router(extractor_app)
 fast_api.include_router(annotator_app)
+
+
+# Add CORS middleware
+fast_api.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Templates
 template_dirs = [static_folder]

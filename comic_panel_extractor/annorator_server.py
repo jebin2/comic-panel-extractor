@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
+from .ws_manager import manager
 from pydantic import BaseModel, field_validator
 from typing import List
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 import os
 import base64
 from io import BytesIO
@@ -12,12 +13,28 @@ from typing import List, Optional, Union, Dict, Any
 from . import utils
 import copy
 import traceback
+import asyncio
+import sys, signal
+import psutil
+import subprocess
+from . import common
+import fcntl
 
 app = APIRouter()
 
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            # Handle any websocket messages if needed
+    except WebSocketDisconnect:
+        print("Client disconnected:", websocket.client)
+        manager.disconnect(websocket)
+
 # === Configuration ===
-IMAGE_ROOT = os.path.join(Config.current_path, "dataset/images")
-LABEL_ROOT = os.path.join(Config.current_path, "dataset/labels")
+IMAGE_ROOT = os.path.join(Config.current_path, "images")
 IMAGE_LABEL_ROOT = os.path.join(Config.current_path, "image_labels")
 
 CLASS_ID = 0
@@ -64,7 +81,7 @@ def get_image_path(image_name: str) -> str:
     return os.path.join(IMAGE_ROOT, image_name)
 
 def get_label_path(image_name: str) -> str:
-    return os.path.join(LABEL_ROOT, os.path.splitext(image_name)[0] + ".txt")
+    return os.path.join(IMAGE_LABEL_ROOT, os.path.splitext(image_name)[0] + ".txt")
 
 # === Core Functions ===
 def load_yolo_annotations(image_path: str, label_path: str, detect: bool = False):
@@ -252,19 +269,23 @@ async def list_all_images():
     for root, _, files in os.walk(IMAGE_ROOT):
         for file in sorted(files):
             if file.lower().endswith((".jpg", ".jpeg", ".png")):
-                image_path = os.path.join(root, file)
-                rel_path = os.path.relpath(image_path, IMAGE_ROOT)
-                label_path = get_label_path(rel_path)
+                try:
+                    image_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(image_path, IMAGE_ROOT)
+                    label_path = get_label_path(rel_path)
 
-                img = Image.open(image_path)
-                width, height = img.size
+                    img = Image.open(image_path)
+                    width, height = img.size
 
-                image_info_list.append(ImageInfo(
-                    name=rel_path.replace("\\", "/"),
-                    width=width,
-                    height=height,
-                    has_annotations=os.path.exists(label_path)
-                ))
+                    image_info_list.append(ImageInfo(
+                        name=rel_path.replace("\\", "/"),
+                        width=width,
+                        height=height,
+                        has_annotations=os.path.exists(label_path)
+                    ))
+                except UnidentifiedImageError:
+                    print(f"Cannot identify image file: {image_path}")
+
     return image_info_list
 
 @app.get("/api/annotate/image/{image_name:path}")
@@ -355,3 +376,175 @@ async def upload_image(file: UploadFile = File(...)):
         f.write(await file.read())
     shutil.copy(file_path, f'{Config.IMAGE_SOURCE_PATH}/{file.filename}')
     return {"message": f"Uploaded {file.filename} to train set"}
+
+####################### ----train---- #############################
+
+
+current_process = {}
+
+def reset_current_process():
+    global current_process
+    current_process = {
+        "process": None
+    }
+
+reset_current_process()
+
+# Define a function to handle cleanup
+def handle_exit(signal_received, frame):
+    if current_process["process"]:
+        os.killpg(os.getpgid(current_process['process'].pid), signal.SIGKILL)
+    sys.exit(0)
+
+# Register the signal handler for SIGINT
+signal.signal(signal.SIGINT, handle_exit)
+
+@app.get("/api/annotate/train")
+async def upload_image(recreate_dataset: bool = False):
+    os.environ['PYTHONUNBUFFERED'] = "1"
+    # Skip if the training process is already running
+    if is_process_running("comic_panel_extractor.train"):
+        return {"status": "ignored", "message": "Training already in progress."}
+    reset_current_process()
+    cmd_to_run=""
+    if recreate_dataset:
+        cmd_to_run = "python -m comic_panel_extractor.create_dataset && "
+    cmd_to_run += "python -m comic_panel_extractor.train"
+
+    async def run_and_stream_output():
+        process = None
+        try:
+            process = subprocess.Popen(
+                cmd_to_run,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=1,
+                universal_newlines=True,
+                preexec_fn=os.setsid,
+		        env={**os.environ, 'PYTHONUNBUFFERED': '1', 'CUDA_LAUNCH_BLOCKING': '1', 'USE_CPU_IF_POSSIBLE': str(common.get_device() == "cpu")}
+            )
+            
+            # Set non-blocking I/O
+            fd = process.stdout.fileno()
+            fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+
+            current_process['process'] = process
+
+            # Stream the output and send it via WebSocket in real-time
+            while True:
+                try:
+                    output = process.stdout.readline()
+                    if output:
+                        print(output.strip())
+                        print("Active connections:", len(manager.active_connections))
+                        asyncio.create_task(manager.broadcast({
+                            'type': 'command_output',
+                            'data': output.strip()
+                        }))
+                        sys.stdout.flush()
+                    
+                    if process.poll() is not None:
+                        break
+                        
+                    # Small delay to prevent CPU spinning
+                    await asyncio.sleep(0.01)
+                    
+                except Exception as e:
+                    print(f"Error reading process output: {e}")
+                    break
+
+            # Process finished
+            return_code = process.returncode if process else -1
+            asyncio.create_task(manager.broadcast({
+                'type': 'command_finished',
+                'return_code': return_code
+            }))
+            
+        except Exception as e:
+            print(f"Error in run_and_stream_output: {e}")
+            asyncio.create_task(manager.broadcast({
+                'type': 'command_error',
+                'error': str(e)
+            }))
+        finally:
+            current_process['process'] = None
+
+    # Start the command execution in a separate task
+    asyncio.create_task(run_and_stream_output())
+    return {"message": "Command started!", "status": "started"}
+
+
+@app.get("/api/annotate/stopTrain")
+async def stop_train():
+    try:
+        # Check if there's actually a process to stop
+        if current_process['process'] is None:
+            return {'message': 'No command is currently running.', 'status': 'no_process'}
+
+        # Check if process has already terminated naturally
+        if current_process['process'].poll() is not None:
+            # Process already finished, just clean up
+            reset_current_process()
+            return {'message': 'Command has already finished.', 'status': 'already_finished'}
+
+        try:
+            # Get the process group ID before attempting to kill
+            pgid = os.getpgid(current_process['process'].pid)
+            
+            # Kill the entire process group
+            os.killpg(pgid, signal.SIGTERM)  # Try SIGTERM first
+            
+            # Wait a bit for graceful shutdown
+            await asyncio.sleep(1)
+
+            # If still running, force kill
+            if current_process['process'] and current_process['process'].poll() is None:
+                os.killpg(pgid, signal.SIGKILL)
+
+        except ProcessLookupError:
+            # Process already dead
+            print("Process already terminated")
+        except OSError as e:
+            # Handle permission errors or other OS-level issues
+            print(f"Error terminating process: {e}")
+            # Try to kill just the main process if group kill fails
+            try:
+                current_process['process'].terminate()
+                await asyncio.sleep(0.5)
+                if current_process['process'].poll() is None:
+                    current_process['process'].kill()
+            except:
+                pass
+        
+        # Always reset the process state
+        reset_current_process()
+        
+        # Notify connected clients
+        await manager.broadcast({
+            'type': 'command_stopped',
+            'message': 'Command terminated by user'
+        })
+        
+        return {'message': 'Command terminated successfully.', 'status': 'terminated'}
+        
+    except Exception as e:
+        print(f"Error in stop_command: {str(e)}")
+        # Force reset even if there was an error
+        reset_current_process()
+        raise HTTPException(status_code=500, detail=f'Error stopping command: {str(e)}')
+
+
+def is_process_running(name: str) -> bool:
+    """
+    Check if a process containing 'name' in its command line is running.
+    """
+    for proc in psutil.process_iter(['cmdline']):
+        try:
+            cmdline = " ".join(proc.info['cmdline']) if proc.info['cmdline'] else ""
+            if name in cmdline:
+                return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    return False
