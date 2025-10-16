@@ -353,4 +353,5 @@ async def upload_image(file: UploadFile = File(...)):
     file_path = os.path.join(IMAGE_ROOT, "train", file.filename)
     with open(file_path, "wb") as f:
         f.write(await file.read())
+    shutil.copy(file_path, f'{Config.IMAGE_SOURCE_PATH}/{file.filename}')
     return {"message": f"Uploaded {file.filename} to train set"}
