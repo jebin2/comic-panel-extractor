@@ -21,9 +21,18 @@ class Config:
 
 	# Read from TOML config
 	EPOCH: int = int(config_data.get("EPOCH", 200))
+	DEFAULT_IMAGE_SIZE: int = int(config_data.get("DEFAULT_IMAGE_SIZE", 640))
+	BATCH: int = int(config_data.get("BATCH", 10))
+	RESUME_TRAIN: bool = str(config_data.get("RESUME_TRAIN", "True")).lower() in ("1", "true", "yes")
 	YOLO_BASE_MODEL_NAME: str = config_data.get("YOLO_BASE_MODEL_NAME", "yolo11s-seg")
 	YOLO_MODEL_NAME: str = config_data.get("YOLO_MODEL_NAME", f"comic_panel_{YOLO_BASE_MODEL_NAME}")
-	IMAGE_SOURCE_PATH: str = config_data.get("IMAGE_SOURCE_PATH", "")
+	image_path_from_config = config_data.get("IMAGE_SOURCE_PATH", "")
+	# Ensure absolute path
+	IMAGE_SOURCE_PATH: str = (
+		image_path_from_config
+		if os.path.isabs(image_path_from_config)
+		else os.path.join(CURRENT_PATH, image_path_from_config)
+	)
 
 	# Derived paths
 	yolo_base_model_path: str = f"{current_path}/{YOLO_BASE_MODEL_NAME}.pt"
@@ -46,7 +55,6 @@ class Config:
 	panel_filename_pattern: str = r"panel_\d+_\((\d+), (\d+), (\d+), (\d+)\)\.jpg"
 
 	# Static constants
-	DEFAULT_IMAGE_SIZE: int = 640
 	SUPPORTED_EXTENSIONS: list = ('jpg', 'jpeg', 'png', 'JPG', 'JPEG', 'PNG')
 
 def get_text_cood_file_path(config: Config):

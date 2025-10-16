@@ -79,7 +79,7 @@ class YOLOManager:
               data_yaml_path: str,
               run_name: Optional[str] = None,
               device: int = 0,
-              resume: bool = True,
+              resume: bool = Config.RESUME_TRAIN,
               **kwargs) -> YOLO:
         """
         Train YOLO model with given parameters.
@@ -108,7 +108,7 @@ class YOLOManager:
             'data': data_yaml_path,
             'imgsz': Config.DEFAULT_IMAGE_SIZE,
             'epochs': Config.EPOCH,
-            'batch': 10,
+            'batch': Config.BATCH,
             'name': run_name,
             'device': device,
             'cache': True,

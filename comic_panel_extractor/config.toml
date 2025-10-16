@@ -1,4 +1,7 @@
 EPOCH=200
+DEFAULT_IMAGE_SIZE=640
+BATCH=10
+RESUME_TRAIN="true"
 YOLO_BASE_MODEL_NAME="yolo11s-seg"
 YOLO_MODEL_NAME="comic_panel_yolo11s-seg"
-IMAGE_SOURCE_PATH="/home/jebin/git/comic-panel-extractor/comic_panel_extractor/images"
+IMAGE_SOURCE_PATH="comic-panel-extractor/comic_panel_extractor/images"
