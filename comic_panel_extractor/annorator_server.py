@@ -371,10 +371,9 @@ async def upload_image(file: UploadFile = File(...)):
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
-    file_path = os.path.join(IMAGE_ROOT, "train", file.filename)
+    file_path = os.path.join(Config.IMAGE_SOURCE_PATH, file.filename)
     with open(file_path, "wb") as f:
         f.write(await file.read())
-    shutil.copy(file_path, f'{Config.IMAGE_SOURCE_PATH}/{file.filename}')
     return {"message": f"Uploaded {file.filename} to train set"}
 
 ####################### ----train---- #############################
