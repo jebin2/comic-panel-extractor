@@ -1,6 +1,6 @@
 from typing import List, Tuple
 from pathlib import Path
-from .config import Config
+from .config import Config, load_config
 
 import numpy as np
 import cv2
@@ -18,7 +18,7 @@ class ImageProcessor:
     """Handles image preprocessing operations."""
     
     def __init__(self, config: Config = None):
-        self.config = config or Config()
+        self.config = config or load_config()
         self.index = 0
 
     def get_output_path(self, output_folder, file_name):

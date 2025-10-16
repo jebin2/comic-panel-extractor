@@ -1,4 +1,4 @@
-from .config import Config
+from .config import Config, load_config
 from ultralytics import YOLO 
 from PIL import Image 
 import cv2
@@ -14,13 +14,12 @@ class LLMPanelExtractor:
 	"""Handles image preprocessing operations."""
 	
 	def __init__(self, config: Config = None):
-		self.config = config or Config()
+		self.config = config or load_config()
 
 		# Check if YOLO model exists; if not, download it to the specified path
-		yolo_base_model_path = f'{self.config.yolo_base_model_path}_best.pt'
-		# yolo_base_model_path = f'{self.config.yolo_trained_model_path}'
+		yolo_base_model_path = self.config.yolo_trained_model_path
 		if not os.path.exists(yolo_base_model_path):
-			url = "https://huggingface.co/mosesb/best-comic-panel-detection/resolve/main/best.pt"
+			url = self.config.YOLO_MODEL_REMOTE_URL
 			print(f"Downloading YOLO model to {yolo_base_model_path}...")
 			response = requests.get(url)
 			response.raise_for_status()  # Raise an error if the download fails
@@ -158,7 +157,7 @@ class LLMPanelExtractor:
 def extract_panel_via_llm(input_image_path, config=None, reset=True):
 	"""Main function to extract panels using various image processing techniques."""
 	# Initialize configuration
-	extractor_config = config or Config()
+	extractor_config = config or load_config()
 	extractor_config.org_input_path = input_image_path
 
 	# Clean output folder

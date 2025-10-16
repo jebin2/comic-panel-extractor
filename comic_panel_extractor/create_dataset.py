@@ -4,7 +4,7 @@ import random
 from pathlib import Path
 from dotenv import load_dotenv
 from tqdm import tqdm
-from .config import load_config
+from .config import Config, load_config
 
 load_dotenv()
 config = load_config()

@@ -4,7 +4,7 @@ import shutil
 from glob import glob
 from typing import List, Union
 from . import utils
-from .config import load_config
+from .config import Config, load_config
 config = load_config()
 
 os.environ["TORCH_USE_CUDA_DSA"] = "1"
@@ -56,7 +56,6 @@ import cv2
 from ultralytics import YOLO
 from typing import List, Optional, Dict, Any
 from .utils import get_abs_path, clean_directory
-from .config import Config
 from dotenv import load_dotenv
 load_dotenv()
 

@@ -2,7 +2,7 @@
 from .yolo_manager import YOLOManager
 from .utils import get_abs_path, backup_file
 import os
-from .config import load_config
+from .config import Config, load_config
 import yaml
 import os
 from pathlib import Path

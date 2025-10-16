@@ -28,6 +28,7 @@ class Config:
     YOLO_BASE_MODEL_NAME: str = "yolo11s-seg"
     YOLO_MODEL_NAME: str = ""  # will be derived if empty
     IMAGE_SOURCE_PATH: str = ""
+    YOLO_MODEL_REMOTE_URL: str = ""
 
     # Derived paths
     yolo_base_model_path: str = ""
@@ -88,7 +89,8 @@ def load_config(file_path=CONFIG_FILE) -> Config:
         RECREATE_DATASET=to_bool(data.get("RECREATE_DATASET", True)),
         YOLO_BASE_MODEL_NAME=data.get("YOLO_BASE_MODEL_NAME", "yolo11s-seg"),
         YOLO_MODEL_NAME=data.get("YOLO_MODEL_NAME", ""),  # derived in __post_init__
-        IMAGE_SOURCE_PATH=data.get("IMAGE_SOURCE_PATH", "")
+        IMAGE_SOURCE_PATH=data.get("IMAGE_SOURCE_PATH", ""),
+        YOLO_MODEL_REMOTE_URL=data.get("YOLO_MODEL_REMOTE_URL", "")
     )
 
 

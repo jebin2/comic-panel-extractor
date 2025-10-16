@@ -10,7 +10,7 @@ from scipy import ndimage as ndi
 from skimage.morphology import remove_small_holes
 import cv2
 
-from .config import Config
+from .config import Config, load_config
 from .image_processor import ImageProcessor
 from .utils import remove_duplicate_boxes, count_panels_inside, extend_boxes_to_image_border
 
@@ -27,7 +27,7 @@ class BorderPanelExtractor:
     
     def __init__(self, config: Config = None):
         """Initialize the BorderPanelExtractor with optional configuration."""
-        self.config = config or Config()
+        self.config = config or load_config()
         self.output_folder = f'{self.config.output_folder}/border_panel_extractor'
         os.makedirs(self.output_folder, exist_ok=True)
         self.PANEL_FILENAME_PATTERN = re.compile(self.config.panel_filename_pattern)
@@ -640,7 +640,7 @@ class BorderPanelExtractor:
 
 
 if __name__ == "__main__":
-    config = Config()
+    config = load_config()
     config.input_path = "test0.jpg"
 
     import shutil

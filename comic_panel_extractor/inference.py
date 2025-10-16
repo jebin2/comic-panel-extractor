@@ -2,7 +2,7 @@
 from .yolo_manager import YOLOManager
 from .utils import get_abs_path, get_image_paths
 import os
-from .config import load_config
+from .config import Config, load_config
 
 config = load_config()
 

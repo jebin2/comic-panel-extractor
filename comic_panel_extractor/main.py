@@ -1,5 +1,5 @@
 # from .text_detector import TextDetector
-from .config import Config
+from .config import Config, load_config
 from .image_processor import ImageProcessor
 from .panel_extractor import PanelData
 from .panel_extractor import PanelExtractor

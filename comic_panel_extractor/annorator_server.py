@@ -18,7 +18,7 @@ import psutil
 import subprocess
 from . import common
 import fcntl
-from .config import load_config, update_toml_key
+from .config import Config, load_config, update_toml_key
 
 app = APIRouter()
 
@@ -423,7 +423,16 @@ async def save_config(request: TrainConfig):
     update_toml_key("RESUME_TRAIN", request.resume_train)
 
     return {'message': 'Config update successfully.', 'status': 'success'}
-    
+
+@app.post("/api/annotate/model_reset")
+async def reset_model():
+    from pathlib import Path
+    file_path = Path(config.yolo_trained_model_path)
+
+    if file_path.exists():
+        file_path.unlink()
+
+    return {'message': 'Model Reseted', 'status': 'success'}
 
 @app.get("/api/annotate/train")
 async def upload_image():

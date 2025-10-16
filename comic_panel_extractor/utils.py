@@ -7,7 +7,7 @@ import os
 import shutil
 from glob import glob
 from typing import List, Union
-from .config import load_config
+from .config import Config, load_config
 from shapely.geometry import Polygon
 
 config = load_config()

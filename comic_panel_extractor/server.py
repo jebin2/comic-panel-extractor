@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .extractor_server import app as extractor_app, delete_folder_if_old_or_empty, output_folder
 from .annorator_server import app as annotator_app
 import os, json
-from .config import load_config
+from .config import Config, load_config
 
 from fastapi import Request
 from fastapi.responses import HTMLResponse

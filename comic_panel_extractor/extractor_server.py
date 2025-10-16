@@ -1,7 +1,7 @@
 from fastapi import APIRouter, File, UploadFile, HTTPException
 from fastapi.responses import FileResponse
 import os
-from .config import load_config
+from .config import Config, load_config
 from .main import ComicPanelExtractor
 import traceback
 from pathlib import Path
@@ -76,7 +76,6 @@ async def convert_comic(file: UploadFile = File(...)):
         print("====================================")
 
         # Extract panels
-        config = Config()
         config.input_path = file_path
         config.output_folder = specific_output_folder
 

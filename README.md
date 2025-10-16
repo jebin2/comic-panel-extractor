@@ -41,9 +41,9 @@ comic-panel-extractor path/to/comic.jpg
 **Python:**
 ```python
 from comic_panel_extractor.main import ComicPanelExtractor
-from comic_panel_extractor.config import Config
+from comic_panel_extractor.config import Config, load_config
 
-config = Config()
+config = load_config()
 config.input_path = "comic.jpg"
 extractor = ComicPanelExtractor(config)
 panels, data, paths = extractor.extract_panels_from_comic()
@@ -99,7 +99,7 @@ with YOLOManager() as yolo:
 ## Configuration
 
 ```python
-config = Config()
+config = load_config()
 config.min_width_ratio = 0.15    # Min panel width (% of image)
 config.min_height_ratio = 0.15   # Min panel height (% of image)
 config.min_area_ratio = 0.05     # Min panel area (% of image)

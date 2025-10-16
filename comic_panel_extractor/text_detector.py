@@ -5,7 +5,7 @@ from typing import List, Optional
 from dataclasses import dataclass
 import numpy as np
 
-from .config import Config, get_text_cood_file_path
+from .config import Config, load_config, get_text_cood_file_path
 
 @dataclass
 class TextDetection:

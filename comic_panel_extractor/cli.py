@@ -9,7 +9,7 @@ import json
 from typing import Optional, List
 
 from .main import ComicPanelExtractor
-from .config import Config
+from .config import Config, load_config
 
 
 class ComicPanelCLI:
@@ -58,7 +58,7 @@ Examples:
 	
 	def _load_config(self, args: argparse.Namespace) -> Config:
 		"""Load configuration from file or create from arguments."""
-		config = Config()
+		config = load_config()
 		
 		# Load from config file if provided
 		if args.config:

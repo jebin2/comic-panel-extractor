@@ -1,5 +1,5 @@
 from typing import List, Tuple
-from .config import Config
+from .config import Config, load_config
 
 import numpy as np
 import cv2
