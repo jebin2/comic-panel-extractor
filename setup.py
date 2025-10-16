@@ -40,6 +40,9 @@ setup(
         "comic_panel_extractor": [
             "static/*",
             "templates/*",
+            "config.toml",
+            "images/Place the images here.info",
+            "image_labels/image labels generated here.info"
         ]
     },
     zip_safe=False,
