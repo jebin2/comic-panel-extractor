@@ -434,9 +434,9 @@ async def reset_model():
 
     return {'message': 'Model Reseted', 'status': 'success'}
 
-@app.post("/api/annotate/deploy")
+@app.get("/api/annotate/deploy")
 async def deploy_model(app_name: str):
-    from yolo_manager import YOLOManager
+    from .yolo_manager import YOLOManager
     with YOLOManager() as yolo_manager:
         yolo_manager.deploy()
 

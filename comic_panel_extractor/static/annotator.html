@@ -1183,14 +1183,13 @@
                 });
 
                 document.getElementById('deployBtn').addEventListener('click', async () => {
-                    const appName = document.getElementById('appName').value;
+                    var appName = document.getElementById('appName').value;
                     if (!appName) {
                         appName = "Comic Panel Extractor"
                         this.showAlert('Using App Name: "Comic Panel Extractor"');
                     }
 
                     try {
-                        this.openXterm();
                         const response = await fetch(`/api/annotate/deploy?app_name=${appName}`);
                         if (!response.ok) {
                             throw new Error(`Server error: ${response.status}`);
