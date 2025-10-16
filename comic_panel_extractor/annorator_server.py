@@ -34,7 +34,6 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 # === Configuration ===
-IMAGE_ROOT = os.path.join(Config.current_path, "images")
 IMAGE_LABEL_ROOT = os.path.join(Config.current_path, "image_labels")
 
 CLASS_ID = 0
@@ -78,7 +77,7 @@ class ImageInfo(BaseModel):
 
 # === Helpers ===
 def get_image_path(image_name: str) -> str:
-    return os.path.join(IMAGE_ROOT, image_name)
+    return os.path.join(Config.IMAGE_SOURCE_PATH, image_name)
 
 def get_label_path(image_name: str) -> str:
     return os.path.join(IMAGE_LABEL_ROOT, os.path.splitext(image_name)[0] + ".txt")
@@ -266,12 +265,12 @@ def parse_yolo_line(line: str, image_width: int, image_height: int) -> Dict[str,
 @app.get("/api/annotate/images", response_model=List[ImageInfo])
 async def list_all_images():
     image_info_list = []
-    for root, _, files in os.walk(IMAGE_ROOT):
+    for root, _, files in os.walk(Config.IMAGE_SOURCE_PATH):
         for file in sorted(files):
             if file.lower().endswith((".jpg", ".jpeg", ".png")):
                 try:
                     image_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(image_path, IMAGE_ROOT)
+                    rel_path = os.path.relpath(image_path, Config.IMAGE_SOURCE_PATH)
                     label_path = get_label_path(rel_path)
 
                     img = Image.open(image_path)
