@@ -1185,8 +1185,8 @@
                 document.getElementById('deployBtn').addEventListener('click', async () => {
                     const appName = document.getElementById('appName').value;
                     if (!appName) {
-                        this.showAlert('Please enter an app name', 'error');
-                        return;
+                        appName = "Comic Panel Extractor"
+                        this.showAlert('Using App Name: "Comic Panel Extractor"');
                     }
 
                     try {

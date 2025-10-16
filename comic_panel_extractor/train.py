@@ -177,18 +177,12 @@ def main():
         print(f"🎯 Training model: {config.YOLO_MODEL_NAME}")
         
         # Train model
-        model = yolo_manager.train(
-            data_yaml_path=data_yaml_path,
-            run_name=config.YOLO_MODEL_NAME
+        yolo_manager.train(
+            data_yaml_path=data_yaml_path
         )
         
         # Validate model
-        metrics = yolo_manager.validate()
-        
-        # Backup best weights
-        weights_path = yolo_manager.get_best_weights_path()
-        backup_path = config.yolo_trained_model_path
-        backup_file(weights_path, backup_path)
+        yolo_manager.validate()
         
         print("🎉 Training completed successfully!")
         

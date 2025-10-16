@@ -42,14 +42,6 @@ def get_image_paths(directories: Union[str, List[str]]) -> List[str]:
     
     return list(set(all_images))  # Remove duplicates
 
-def backup_file(source_path: str, backup_path: str) -> str:
-    """Backup a file to specified location."""
-    backup_path = get_abs_path(backup_path)
-    os.makedirs(os.path.dirname(backup_path), exist_ok=True)
-    shutil.copy(source_path, backup_path)
-    print(f"✅ File backed up to: {backup_path}")
-    return backup_path
-
 # yolo_manager.py
 import os
 import cv2
@@ -62,8 +54,8 @@ load_dotenv()
 class YOLOManager:
     """Manages YOLO model training and inference operations."""
     
-    def __init__(self, model_name: Optional[str] = None):
-        self.model_name = model_name or config.YOLO_MODEL_NAME
+    def __init__(self):
+        self.model_name = config.YOLO_MODEL_NAME
         self.model = None
     
     def load_model(self, weights_path: Optional[str] = None) -> YOLO:
@@ -78,7 +70,6 @@ class YOLOManager:
     
     def train(self, 
               data_yaml_path: str,
-              run_name: Optional[str] = None,
               device: int = 0,
               resume: bool = config.RESUME_TRAIN,
               **kwargs) -> YOLO:
@@ -87,13 +78,11 @@ class YOLOManager:
         
         Args:
             data_yaml_path: Path to dataset YAML file
-            run_name: Name for the training run
             device: Device to use for training
             resume: Whether to resume from checkpoint if available
             **kwargs: Additional training parameters
         """
-        run_name = run_name or self.model_name
-        checkpoint_path = f"{config.current_path}/runs/detect/{run_name}/weights/last.pt"
+        checkpoint_path = f"{config.current_path}/runs/detect/{self.model_name}/weights/last.pt"
         
         # Check for existing checkpoint
         if resume and os.path.isfile(checkpoint_path):
@@ -110,7 +99,7 @@ class YOLOManager:
             'imgsz': config.DEFAULT_IMAGE_SIZE,
             'epochs': config.EPOCH,
             'batch': config.BATCH,
-            'name': run_name,
+            'name': self.model_name,
             'device': device,
             'cache': True,
             'project': f'{config.current_path}/runs/detect',
@@ -136,11 +125,23 @@ class YOLOManager:
         metrics = self.model.val()
         print("📊 Validation Metrics:", metrics)
         return metrics
-    
-    def get_best_weights_path(self, run_name: Optional[str] = None) -> str:
+
+    def deploy(self):
+        weights_path = self.get_best_weights_path()
+
+
+        from pathlib import Path
+        deploy_path = config.yolo_trained_model_path
+        file_path = Path(deploy_path)
+
+        if file_path.exists():
+            file_path.unlink()
+
+        shutil.copy(weights_path, deploy_path)
+
+    def get_best_weights_path(self) -> str:
         """Get path to best trained weights."""
-        run_name = run_name or self.model_name
-        weights_path = os.path.join(config.current_path, 'runs', 'detect', run_name, 'weights', 'best.pt')
+        weights_path = os.path.join(config.current_path, 'runs', 'detect', self.model_name, 'weights', 'best.pt')
         
         if not os.path.isfile(weights_path):
             raise FileNotFoundError(f"❌ Trained weights not found at: {weights_path}")

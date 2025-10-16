@@ -434,6 +434,14 @@ async def reset_model():
 
     return {'message': 'Model Reseted', 'status': 'success'}
 
+@app.post("/api/annotate/deploy")
+async def deploy_model(app_name: str):
+    from yolo_manager import YOLOManager
+    with YOLOManager() as yolo_manager:
+        yolo_manager.deploy()
+
+    return {'message': 'Model Deployed', 'status': 'success'}
+
 @app.get("/api/annotate/train")
 async def upload_image():
     os.environ['PYTHONUNBUFFERED'] = "1"
