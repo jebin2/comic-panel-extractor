@@ -4,6 +4,8 @@ import shutil
 from glob import glob
 from typing import List, Union
 from . import utils
+from .config import load_config
+config = load_config()
 
 os.environ["TORCH_USE_CUDA_DSA"] = "1"
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
@@ -33,7 +35,7 @@ def get_image_paths(directories: Union[str, List[str]]) -> List[str]:
             continue
             
         # Support multiple image extensions
-        for ext in Config.SUPPORTED_EXTENSIONS:
+        for ext in config.SUPPORTED_EXTENSIONS:
             pattern = os.path.join(abs_dir, f'*.{ext}')
             images = sorted(glob(pattern))
             all_images.extend(images)
@@ -62,7 +64,7 @@ class YOLOManager:
     """Manages YOLO model training and inference operations."""
     
     def __init__(self, model_name: Optional[str] = None):
-        self.model_name = model_name or Config.YOLO_MODEL_NAME
+        self.model_name = model_name or config.YOLO_MODEL_NAME
         self.model = None
     
     def load_model(self, weights_path: Optional[str] = None) -> YOLO:
@@ -71,15 +73,15 @@ class YOLOManager:
             print(f"📦 Loading model from: {weights_path}")
             self.model = YOLO(weights_path)
         else:
-            print(f"✨ Loading pretrained model '{Config.yolo_base_model_path}'")
-            self.model = YOLO(f"{Config.yolo_base_model_path}")
+            print(f"✨ Loading pretrained model '{config.yolo_base_model_path}'")
+            self.model = YOLO(f"{config.yolo_base_model_path}")
         return self.model
     
     def train(self, 
               data_yaml_path: str,
               run_name: Optional[str] = None,
               device: int = 0,
-              resume: bool = Config.RESUME_TRAIN,
+              resume: bool = config.RESUME_TRAIN,
               **kwargs) -> YOLO:
         """
         Train YOLO model with given parameters.
@@ -92,7 +94,7 @@ class YOLOManager:
             **kwargs: Additional training parameters
         """
         run_name = run_name or self.model_name
-        checkpoint_path = f"{Config.current_path}/runs/detect/{run_name}/weights/last.pt"
+        checkpoint_path = f"{config.current_path}/runs/detect/{run_name}/weights/last.pt"
         
         # Check for existing checkpoint
         if resume and os.path.isfile(checkpoint_path):
@@ -106,13 +108,13 @@ class YOLOManager:
         # Default training parameters
         train_params = {
             'data': data_yaml_path,
-            'imgsz': Config.DEFAULT_IMAGE_SIZE,
-            'epochs': Config.EPOCH,
-            'batch': Config.BATCH,
+            'imgsz': config.DEFAULT_IMAGE_SIZE,
+            'epochs': config.EPOCH,
+            'batch': config.BATCH,
             'name': run_name,
             'device': device,
             'cache': True,
-            'project': f'{Config.current_path}/runs/detect',
+            'project': f'{config.current_path}/runs/detect',
             'exist_ok': True,
             'pose': False,
             'resume': resume_flag,
@@ -139,7 +141,7 @@ class YOLOManager:
     def get_best_weights_path(self, run_name: Optional[str] = None) -> str:
         """Get path to best trained weights."""
         run_name = run_name or self.model_name
-        weights_path = os.path.join(Config.current_path, 'runs', 'detect', run_name, 'weights', 'best.pt')
+        weights_path = os.path.join(config.current_path, 'runs', 'detect', run_name, 'weights', 'best.pt')
         
         if not os.path.isfile(weights_path):
             raise FileNotFoundError(f"❌ Trained weights not found at: {weights_path}")
@@ -163,7 +165,7 @@ class YOLOManager:
         if not image_paths:
             raise ValueError("❌ No images provided for annotation.")
         
-        image_size = image_size or Config.DEFAULT_IMAGE_SIZE
+        image_size = image_size or config.DEFAULT_IMAGE_SIZE
         # clean_directory(output_dir)
         total_images = len(image_paths)
         print(f"🎨 Annotating {total_images} images and saving labels...")

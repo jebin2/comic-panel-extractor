@@ -790,9 +790,14 @@
             <!-- Quick Actions -->
             <div class="sidebar-section">
                 <div class="section-title">Actions</div>
-                <button class="btn btn-primary btn-sm trainBtn" id="trainBtn">
-                    Train
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-primary btn-sm trainBtn" id="trainBtn" style="flex: 1;">
+                        Train
+                    </button>
+                    <button class="btn btn-ghost btn-sm" id="settingsBtn" style="padding: 6px 8px; font-size: 11px;">
+                        ⚙️
+                    </button>
+                </div>
                 <button class="btn btn-primary btn-sm trainBtn" id="deployModalBtn">
                     Deploy Model
                 </button>
@@ -859,6 +864,52 @@
 
     <!-- Alerts Container -->
     <div class="alerts" id="alerts"></div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeSettingsModal">×</span>
+            <h2>Train Settings</h2>
+            <div class="form-field">
+                <label class="form-label">Epoch</label>
+                <input type="number" class="form-input" id="epoch" value="10" min="1">
+            </div>
+            <div class="form-field">
+                <label class="form-label">Batch Size</label>
+                <input type="number" class="form-input" id="batch" value="8" min="1">
+            </div>
+            <div class="form-field">
+                <label class="form-label">Image Size</label>
+                <input type="number" class="form-input" id="imgsz" value="640" min="1">
+            </div>
+            <div class="form-field">
+                <label class="form-label">
+                    <input type="checkbox" id="recreateDataset" checked>
+                    Recreate Dataset
+                </label>
+            </div>
+            <div class="form-field">
+                <label class="form-label">
+                    <input type="checkbox" id="resumeTrain" checked>
+                    Resume Train
+                </label>
+            </div>
+            <button class="btn btn-primary" id="saveSettingsBtn">Save</button>
+        </div>
+    </div>
+
+    <!-- Deploy Modal -->
+    <div id="deployModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeDeployModal">×</span>
+            <h2>Deploy Model</h2>
+            <div class="form-field">
+                <label class="form-label">App Name</label>
+                <input type="text" class="form-input" id="appName" placeholder="Enter a unique app name">
+            </div>
+            <button class="btn btn-primary" id="deployBtn">Deploy</button>
+        </div>
+    </div>
 
 
     <div id="outputModal" class="modal">
@@ -953,6 +1004,7 @@
             init() {
                 this.setupEventListeners();
                 this.loadImages();
+                this.loadTrainConfig();
             }
 
             setupEventListeners() {
@@ -1032,7 +1084,7 @@
                 document.getElementById('trainBtn').addEventListener('click', async (e) => {
                     try {
                         this.openXterm();
-                        const response = await fetch('/api/annotate/train?recreate_dataset=true');
+                        const response = await fetch('/api/annotate/train');
 
                         if (!response.ok) {
                             throw new Error(`Server error: ${response.status}`);
@@ -1076,7 +1128,123 @@
                         }
                     }
                 });
+
+                // Settings Modal
+                document.getElementById('settingsBtn').addEventListener('click', () => {
+                    document.getElementById('settingsModal').style.display = 'block';
+                });
+
+                document.getElementById('closeSettingsModal').addEventListener('click', () => {
+                    document.getElementById('settingsModal').style.display = 'none';
+                });
+
+                document.getElementById('saveSettingsBtn').addEventListener('click', async () => {
+                    const newSettings = {
+                        epoch: parseInt(document.getElementById('epoch').value) || 200,
+                        batch: parseInt(document.getElementById('batch').value) || 10,
+                        imgsz: parseInt(document.getElementById('imgsz').value) || 640,
+                        recreate_dataset: document.getElementById('recreateDataset').checked,
+                        resume_train: document.getElementById('resumeTrain').checked
+                    };
+
+                    try {
+                        const response = await fetch('/api/annotate/train/config', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(newSettings)
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || 'Failed to save settings');
+                        }
+
+                        const result = await response.json();
+                        this.trainSettings = newSettings;
+                        document.getElementById('settingsModal').style.display = 'none';
+                        this.showAlert(result.message || 'Settings saved successfully', 'success');
+
+                    } catch (error) {
+                        console.error('Error saving settings:', error);
+                        this.showAlert('Error: ' + error.message, 'error');
+                    }
+                });
+
+
+                // Deploy Modal
+                document.getElementById('deployModalBtn').addEventListener('click', () => {
+                    document.getElementById('deployModal').style.display = 'block';
+                });
+
+                document.getElementById('closeDeployModal').addEventListener('click', () => {
+                    document.getElementById('deployModal').style.display = 'none';
+                });
+
+                document.getElementById('deployBtn').addEventListener('click', async () => {
+                    const appName = document.getElementById('appName').value;
+                    if (!appName) {
+                        this.showAlert('Please enter an app name', 'error');
+                        return;
+                    }
+
+                    try {
+                        this.openXterm();
+                        const response = await fetch(`/api/annotate/deploy?app_name=${appName}`);
+                        if (!response.ok) {
+                            throw new Error(`Server error: ${response.status}`);
+                        }
+                        const result = await response.json();
+                        this.showAlert(result.message, 'success');
+                    } catch (error) {
+                        if (term) {
+                            term.write(`\x1b[31m[Error starting command: ${error.message}]\x1b[0m\r\n`);
+                        } else {
+                            this.showAlert('Error starting command: ' + error.message, 'error');
+                        }
+                    }
+                    document.getElementById('deployModal').style.display = 'none';
+                });
+
+                // Reset Model
+                document.getElementById('resetModalBtn').addEventListener('click', async () => {
+                    if (confirm('Are you sure you want to reset the model? This action cannot be undone.')) {
+                        try {
+                            this.openXterm();
+                            const response = await fetch('/api/annotate/model_reset', { method: 'POST' });
+                            if (!response.ok) {
+                                throw new Error(`Server error: ${response.status}`);
+                            }
+                            const result = await response.json();
+                            this.showAlert(result.message, 'success');
+                        } catch (error) {
+                            if (term) {
+                                term.write(`\x1b[31m[Error starting command: ${error.message}]\x1b[0m\r\n`);
+                            } else {
+                                this.showAlert('Error starting command: ' + error.message, 'error');
+                            }
+                        }
+                    }
+                });
+
             }
+
+            async loadTrainConfig() {
+                try {
+                    const response = await fetch('/api/annotate/train/config');
+                    const config = await response.json();
+                    this.trainSettings = config;
+                    document.getElementById('epoch').value = config.epoch;
+                    document.getElementById('batch').value = config.batch;
+                    document.getElementById('imgsz').value = config.imgsz;
+                    document.getElementById('recreateDataset').checked = config.recreate_dataset;
+                    document.getElementById('resumeTrain').checked = config.resume_train;
+                } catch (error) {
+                    this.showAlert('Error loading training config: ' + error.message, 'error');
+                }
+            }
+
 
             updateCanvasCursor() {
                 if (this.annotationMode === 'segmentation') {

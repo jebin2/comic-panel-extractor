@@ -7,8 +7,10 @@ import os
 import shutil
 from glob import glob
 from typing import List, Union
-from .config import Config
+from .config import load_config
 from shapely.geometry import Polygon
+
+config = load_config()
 
 def remove_duplicate_boxes(boxes, compare_single=None, iou_threshold=0.7):
 	"""
@@ -508,7 +510,7 @@ def get_image_paths(directories: Union[str, List[str]]) -> List[str]:
 			continue
 			
 		# Support multiple image extensions
-		for ext in Config.SUPPORTED_EXTENSIONS:
+		for ext in config.SUPPORTED_EXTENSIONS:
 			pattern = os.path.join(abs_dir, f'*.{ext}')
 			images = sorted(glob(pattern))
 			all_images.extend(images)

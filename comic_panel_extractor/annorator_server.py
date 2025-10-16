@@ -8,7 +8,6 @@ import os
 import base64
 from io import BytesIO
 import shutil
-from .config import Config
 from typing import List, Optional, Union, Dict, Any
 from . import utils
 import copy
@@ -19,6 +18,7 @@ import psutil
 import subprocess
 from . import common
 import fcntl
+from .config import load_config, update_toml_key
 
 app = APIRouter()
 
@@ -34,7 +34,8 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 # === Configuration ===
-IMAGE_LABEL_ROOT = os.path.join(Config.current_path, "image_labels")
+config = load_config()
+IMAGE_LABEL_ROOT = os.path.join(config.current_path, "image_labels")
 
 CLASS_ID = 0
 
@@ -75,9 +76,16 @@ class ImageInfo(BaseModel):
     height: int
     has_annotations: bool
 
+class TrainConfig(BaseModel):
+    epoch: int  # Relative path like train/image1.jpg
+    batch: int
+    imgsz: int
+    recreate_dataset: bool
+    resume_train: bool
+
 # === Helpers ===
 def get_image_path(image_name: str) -> str:
-    return os.path.join(Config.IMAGE_SOURCE_PATH, image_name)
+    return os.path.join(config.IMAGE_SOURCE_PATH, image_name)
 
 def get_label_path(image_name: str) -> str:
     return os.path.join(IMAGE_LABEL_ROOT, os.path.splitext(image_name)[0] + ".txt")
@@ -95,7 +103,7 @@ def load_yolo_annotations(image_path: str, label_path: str, detect: bool = False
         if detect and not os.path.exists(label_path):
             from .yolo_manager import YOLOManager
             with YOLOManager() as yolo_manager:
-                weights_path = Config.yolo_trained_model_path
+                weights_path = config.yolo_trained_model_path
                 yolo_manager.load_model(weights_path)
                 yolo_manager.annotate_images(
                     image_paths=[image_path],
@@ -265,12 +273,12 @@ def parse_yolo_line(line: str, image_width: int, image_height: int) -> Dict[str,
 @app.get("/api/annotate/images", response_model=List[ImageInfo])
 async def list_all_images():
     image_info_list = []
-    for root, _, files in os.walk(Config.IMAGE_SOURCE_PATH):
+    for root, _, files in os.walk(config.IMAGE_SOURCE_PATH):
         for file in sorted(files):
             if file.lower().endswith((".jpg", ".jpeg", ".png")):
                 try:
                     image_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(image_path, Config.IMAGE_SOURCE_PATH)
+                    rel_path = os.path.relpath(image_path, config.IMAGE_SOURCE_PATH)
                     label_path = get_label_path(rel_path)
 
                     img = Image.open(image_path)
@@ -370,7 +378,7 @@ async def upload_image(file: UploadFile = File(...)):
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
-    file_path = os.path.join(Config.IMAGE_SOURCE_PATH, file.filename)
+    file_path = os.path.join(config.IMAGE_SOURCE_PATH, file.filename)
     with open(file_path, "wb") as f:
         f.write(await file.read())
     return {"message": f"Uploaded {file.filename} to train set"}
@@ -396,16 +404,36 @@ def handle_exit(signal_received, frame):
 
 # Register the signal handler for SIGINT
 signal.signal(signal.SIGINT, handle_exit)
+@app.get("/api/annotate/train/config")
+async def get_config():
+    return {
+        "epoch": config.EPOCH,
+        "imgsz": config.DEFAULT_IMAGE_SIZE,
+        "batch": config.BATCH,
+        "resume_train": config.RESUME_TRAIN,
+        "recreate_dataset": config.RECREATE_DATASET
+    }
+
+@app.post("/api/annotate/train/config")
+async def save_config(request: TrainConfig):
+    update_toml_key("EPOCH", request.epoch)
+    update_toml_key("BATCH", request.batch)
+    update_toml_key("DEFAULT_IMAGE_SIZE", request.imgsz)
+    update_toml_key("RECREATE_DATASET", request.recreate_dataset)
+    update_toml_key("RESUME_TRAIN", request.resume_train)
+
+    return {'message': 'Config update successfully.', 'status': 'success'}
+    
 
 @app.get("/api/annotate/train")
-async def upload_image(recreate_dataset: bool = False):
+async def upload_image():
     os.environ['PYTHONUNBUFFERED'] = "1"
     # Skip if the training process is already running
     if is_process_running("comic_panel_extractor.train"):
         return {"status": "ignored", "message": "Training already in progress."}
     reset_current_process()
     cmd_to_run=""
-    if recreate_dataset:
+    if config.RECREATE_DATASET:
         cmd_to_run = "python -m comic_panel_extractor.create_dataset && "
     cmd_to_run += "python -m comic_panel_extractor.train"
 

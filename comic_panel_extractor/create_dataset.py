@@ -4,10 +4,11 @@ import random
 from pathlib import Path
 from dotenv import load_dotenv
 from tqdm import tqdm
-from .config import Config
+from .config import load_config
 
 load_dotenv()
-SOURCE_PATHS = Config.IMAGE_SOURCE_PATH
+config = load_config()
+SOURCE_PATHS = config.IMAGE_SOURCE_PATH
 
 if not SOURCE_PATHS:
     raise ValueError("SOURCE_PATH not set")
@@ -15,8 +16,8 @@ if not SOURCE_PATHS:
 # Split by comma and strip whitespace
 source_paths = [Path(p.strip()) for p in SOURCE_PATHS.split(',')]
 
-images_dir = Path(f'{Config.current_path}/images')
-dataset_dir = Path(f'{Config.current_path}/dataset')
+images_dir = Path(f'{config.current_path}/images')
+dataset_dir = Path(f'{config.current_path}/dataset')
 
 image_exts = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp'}
 label_exts = {'.txt'}
@@ -72,7 +73,7 @@ splits = {
     'test': all_images[val_end:]
 }
 
-label_src_dir = Path(f'{Config.current_path}/image_labels')
+label_src_dir = Path(f'{config.current_path}/image_labels')
 
 # Move/copy images and labels to their split folders with tqdm
 for split, files in splits.items():

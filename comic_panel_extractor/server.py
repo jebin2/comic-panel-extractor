@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .extractor_server import app as extractor_app, delete_folder_if_old_or_empty, output_folder
 from .annorator_server import app as annotator_app
 import os, json
-from .config import Config
+from .config import load_config
 
 from fastapi import Request
 from fastapi.responses import HTMLResponse
@@ -13,9 +13,10 @@ import os
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 fast_api = FastAPI()
+config = load_config()
 
 # Mount static files ONCE
-static_folder = os.path.join(Config.current_path, "static")
+static_folder = os.path.join(config.current_path, "static")
 fast_api.mount("/static", StaticFiles(directory=static_folder), name="static")
 
 fast_api.include_router(extractor_app)

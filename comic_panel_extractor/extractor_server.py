@@ -1,7 +1,7 @@
 from fastapi import APIRouter, File, UploadFile, HTTPException
 from fastapi.responses import FileResponse
 import os
-from .config import Config
+from .config import load_config
 from .main import ComicPanelExtractor
 import traceback
 from pathlib import Path
@@ -9,8 +9,10 @@ import shutil
 import time
 import mimetypes
 
+config = load_config()
+
 base_output_folder = "api_outputs"
-output_folder = os.path.join(Config.current_path, base_output_folder)
+output_folder = os.path.join(config.current_path, base_output_folder)
 
 app = APIRouter()
 

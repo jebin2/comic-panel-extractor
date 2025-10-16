@@ -2,7 +2,9 @@
 from .yolo_manager import YOLOManager
 from .utils import get_abs_path, get_image_paths
 import os
-from .config import Config
+from .config import load_config
+
+config = load_config()
 
 def run_inference(weights_path: str, images_dirs, output_dir: str = 'temp_dir') -> None:
     """
@@ -41,7 +43,7 @@ def run_inference(weights_path: str, images_dirs, output_dir: str = 'temp_dir') 
 
 def main():
     """Main inference function."""
-    weights_path = Config.yolo_trained_model_path
+    weights_path = config.yolo_trained_model_path
     images_dirs = [
         './dataset/images/train',
         './dataset/images/val', 
@@ -52,10 +54,10 @@ def main():
 
 def annotate_all_image():
     with YOLOManager() as yolo_manager:
-        weights_path = Config.yolo_trained_model_path
+        weights_path = config.yolo_trained_model_path
         yolo_manager.load_model(weights_path)
-        IMAGE_ROOT = os.path.join(Config.current_path, "dataset/images")
-        IMAGE_LABEL_ROOT = os.path.join(Config.current_path, "image_labels")
+        IMAGE_ROOT = os.path.join(config.current_path, "dataset/images")
+        IMAGE_LABEL_ROOT = os.path.join(config.current_path, "image_labels")
         for root, _, files in os.walk(IMAGE_ROOT):
             for file in sorted(files):
                 if file.lower().endswith((".jpg", ".jpeg", ".png")):

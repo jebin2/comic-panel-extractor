@@ -2,11 +2,13 @@
 from .yolo_manager import YOLOManager
 from .utils import get_abs_path, backup_file
 import os
-from .config import Config
+from .config import load_config
 import yaml
 import os
 from pathlib import Path
 import shutil
+
+config = load_config()
 
 def convert_box_to_polygon(label_file: Path):
     """
@@ -138,7 +140,7 @@ def create_filtered_yaml(output_filtered_dataset_path, filtered_counts):
     Create the YAML file for the filtered dataset
     """
     output_path = Path(output_filtered_dataset_path)
-    yaml_path = f'{Config.current_path}/filtered_comic.yaml'
+    yaml_path = f'{config.current_path}/filtered_comic.yaml'
     
     # Create YAML structure
     yaml_data = {
@@ -167,17 +169,17 @@ def main():
         yolo_manager = YOLOManager()
         
         # Configuration
-        data_yaml_path = f'{Config.current_path}/filtered_comic.yaml'
+        data_yaml_path = f'{config.current_path}/filtered_comic.yaml'
         
         if not os.path.isfile(data_yaml_path):
             raise FileNotFoundError(f"❌ Dataset YAML not found: {data_yaml_path}")
         
-        print(f"🎯 Training model: {Config.YOLO_MODEL_NAME}")
+        print(f"🎯 Training model: {config.YOLO_MODEL_NAME}")
         
         # Train model
         model = yolo_manager.train(
             data_yaml_path=data_yaml_path,
-            run_name=Config.YOLO_MODEL_NAME
+            run_name=config.YOLO_MODEL_NAME
         )
         
         # Validate model
@@ -185,7 +187,7 @@ def main():
         
         # Backup best weights
         weights_path = yolo_manager.get_best_weights_path()
-        backup_path = Config.yolo_trained_model_path
+        backup_path = config.yolo_trained_model_path
         backup_file(weights_path, backup_path)
         
         print("🎉 Training completed successfully!")
