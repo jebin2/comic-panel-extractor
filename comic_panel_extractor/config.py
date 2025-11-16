@@ -61,7 +61,7 @@ class Config:
 
         # Derive YOLO_MODEL_NAME if empty
         if not self.YOLO_MODEL_NAME:
-            self.YOLO_MODEL_NAME = f"comic_panel_{self.YOLO_BASE_MODEL_NAME}"
+            self.YOLO_MODEL_NAME = f"final_model_{self.YOLO_BASE_MODEL_NAME}"
 
         # Derived paths
         self.yolo_base_model_path = os.path.join(self.current_path, f"{self.YOLO_BASE_MODEL_NAME}.pt")

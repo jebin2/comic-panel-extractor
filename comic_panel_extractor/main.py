@@ -43,40 +43,7 @@ class ComicPanelExtractor:
             return None, None, all_path
         except Exception as e:
             print(f'{str(e)} {traceback.format_exc()}')
-
-        processed_image_path = self.image_processor.group_colors(self.config.input_path)
-
-        processed_image_path = BorderPanelExtractor(self.config).main(processed_image_path)
-
-        self.config.black_overlay_input_path = processed_image_path
-
-        _, _, processed_image_path = self.image_processor.preprocess_image(processed_image_path)
-
-        processed_image_path = self.image_processor.thin_image_borders(processed_image_path)
-
-        processed_image_path = self.image_processor.remove_diagonal_lines_and_set_white(processed_image_path)
-
-        processed_image_path = self.image_processor.remove_dangling_lines(processed_image_path)
-
-        processed_image_path = self.image_processor.remove_diagonal_only_cells(processed_image_path)
-
-        processed_image_path = self.image_processor.thick_black(processed_image_path)
-
-        processed_image_path = self.image_processor.remove_small_regions(processed_image_path)
-
-        processed_image_path = self.image_processor.remove_small_regions(processed_image_path)
-
-        # processed_image_path = self.image_processor.connect_horizontal_vertical_gaps(processed_image_path)
-
-        processed_image_path = self.image_processor.detect_small_objects_and_set_white(processed_image_path)
-
-        processed_image_path = self.image_processor.thin_image_borders(processed_image_path)
-
-        panel_images, panel_data, all_panel_path = self.panel_extractor.extract_panels(
-            processed_image_path
-        )
-        
-        return panel_images, panel_data, all_panel_path
+            raise
     
     def cleanup(self):
         """Clean up temporary files if needed."""
