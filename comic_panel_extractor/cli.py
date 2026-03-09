@@ -28,16 +28,16 @@ class ComicPanelCLI:
 Examples:
   comic-extract comic.jpg
   comic-extract comic.jpg --config config.json
+
+  config.json example:
+  {
+  	"input_path": image_path,
+	"output_folder": output_dir
+  }
 			"""
 		)
 		
 		# Required arguments
-		parser.add_argument(
-			"input_path",
-			help="Path to the comic image file"
-		)
-		
-		# Configuration file
 		parser.add_argument(
 			"--config",
 			help="Path to JSON configuration file"
@@ -70,10 +70,7 @@ Examples:
 							setattr(config, key, value)
 			except Exception as e:
 				print(f"⚠️  Warning: Could not load config file: {e}", file=sys.stderr)
-		
-		# Override with command line arguments
-		config.input_path = args.input_path
-		
+
 		return config
 
 def main():
