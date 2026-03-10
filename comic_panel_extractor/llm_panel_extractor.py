@@ -85,7 +85,7 @@ class LLMPanelExtractor:
 			image_width, image_height = input_image.size
 
 		# Run YOLO detection
-		detection_results = self.yolo_model.predict(source=input_image_path, device=common.get_device())
+		detection_results = self.yolo_model.predict(source=input_image_path, device=common.get_device(), verbose=True)
 		first_detection_result = detection_results[0]
 		newly_detected_boxes = None
 		all_processed_boxes = []
