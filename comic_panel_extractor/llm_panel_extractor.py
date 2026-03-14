@@ -245,6 +245,12 @@ def extract_panel_via_llm(input_image_path, config=None, reset=True):
 			accumulated_detected_boxes.extend(remain_boxes)
 
 	all_path = [file for file in os.listdir(extractor_config.output_folder) if "_panel_" in file]
+
+	if not extractor_config.debug:
+		for file in os.listdir(extractor_config.output_folder):
+			if "_panel_" not in file:
+				os.remove(os.path.join(extractor_config.output_folder, file))
+
 	print(f"Processing complete. Final result saved to: {extractor_config.output_folder}")
 	print(f"Total panels detected: {len(all_path)}")
 	return all_path, accumulated_detected_boxes, all_processed_boxes

@@ -50,6 +50,9 @@ class Config:
     # BorderPanelExtractor
     panel_filename_pattern: str = r"panel_\d+_\((\d+), (\d+), (\d+), (\d+)\)\.jpg"
 
+    # Debug mode
+    debug: bool = False
+
     # Constants
     SUPPORTED_EXTENSIONS: tuple = ('jpg', 'jpeg', 'png', 'JPG', 'JPEG', 'PNG')
 

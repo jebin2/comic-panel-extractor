@@ -42,6 +42,11 @@ Examples:
 			"--config",
 			help="Path to JSON configuration file"
 		)
+		parser.add_argument(
+			"--debug",
+			action="store_true",
+			help="Keep all intermediate processing images in the output folder"
+		)
 		
 		return parser
 	
@@ -51,6 +56,7 @@ Examples:
 			parsed_args = self.parser.parse_args(args)
 			# Load configuration
 			config = self._load_config(parsed_args)
+			config.debug = parsed_args.debug
 			ComicPanelExtractor(config).extract_panels_from_comic()
 		except Exception as e:
 			print(f"❌ Error: {e}", file=sys.stderr)
