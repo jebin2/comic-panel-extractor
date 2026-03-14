@@ -165,6 +165,9 @@ def extract_panel_via_llm(input_image_path, config=None, reset=True):
 		if Path(extractor_config.output_folder).exists():
 			shutil.rmtree(extractor_config.output_folder, ignore_errors=True)
 		Path(extractor_config.output_folder).mkdir(exist_ok=True)
+		pre_existing_files = set()
+	else:
+		pre_existing_files = set(os.listdir(extractor_config.output_folder)) if Path(extractor_config.output_folder).exists() else set()
 
 	# Initialize extractor
 	panel_extractor = LLMPanelExtractor(extractor_config)
@@ -248,7 +251,7 @@ def extract_panel_via_llm(input_image_path, config=None, reset=True):
 
 	if not extractor_config.debug:
 		for file in os.listdir(extractor_config.output_folder):
-			if "_panel_" not in file:
+			if "_panel_" not in file and file not in pre_existing_files:
 				os.remove(os.path.join(extractor_config.output_folder, file))
 
 	print(f"Processing complete. Final result saved to: {extractor_config.output_folder}")
