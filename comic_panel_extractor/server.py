@@ -53,6 +53,10 @@ async def index(request: Request):
     html_content = template.render(request=request)
     return HTMLResponse(content=html_content)
 
+@fast_api.get("/health")
+async def health():
+    return {"status": "ok"}
+
 def main():
     import uvicorn
     uvicorn.run(
